@@ -2,21 +2,43 @@
 
 A production-quality MLOps pipeline for multi-class trading action prediction — built with scikit-learn, MLflow, FastAPI, and pytest.
 
-This project demonstrates the full local ML lifecycle: from training and experiment tracking to serving a prediction API and running tests.
+This project demonstrates the full local ML lifecycle: from training and experiment tracking to serving a prediction API and running tests. We now plan to scale from a single-symbol 5‑minute prototype to a real fintech scenario using 1‑hour OHLCV and a component‑weighted index signal (e.g., NASDAQ‑100 → /NQ).
 
 ---
 
 ## 📋 Problem & Solution
-Modern markets produce continuous OHLCV data, making multi-indicator decisions hard to execute consistently. We scope the task to a single asset and predict the next trading action among five classes using a small, practical set of indicators (returns, rolling stats, RSI-like momentum, moving averages, ATR, Bollinger Band width).
+Modern markets produce continuous OHLCV data, making multi-indicator decisions hard to execute consistently.
+- Phase A (done): single-symbol 5‑class action prediction from recent OHLCV.
+- Phase B (next): component‑weighted index signal using 1‑hour OHLCV for index constituents (e.g., NASDAQ‑100) and a pooled champion classifier.
 
-Our pipeline trains a baseline classifier (RandomForest), logs metrics/artifacts to MLflow, and serves predictions via FastAPI with class probabilities for risk-aware decision thresholds.
+Our pipeline trains classifiers, logs to MLflow, serves a champion via FastAPI, and will aggregate per‑component predictions into an index futures signal.
+
+### Operational framing (Phase A, example: NVDA, 5‑minute bars)
+- **Scope**: Single asset, intraday 5‑minute OHLCV candles.
+- **Horizon & cadence**: Predict the next bar’s action (t+1) after each completed candle; ~78 predictions per full trading day.
+- **History window**: Use the latest W bars (e.g., 20–60) to compute rolling features; first W bars are warm‑up (no signal).
+- **Labeling**: Forward return r_next mapped to 5 classes via thresholds t1 < t2 (strong_sell, sell, hold, buy, strong_buy) with no look‑ahead.
+- **API outputs per bar**: `action`, per‑class `probabilities`, `confidence` (max prob), `timestamp_next`, and `model_version` metadata.
+- **Example decision policy**: If `confidence ≥ 0.6`, act per class mapping; otherwise `hold`. Pair with risk controls (position limits, SL/TP, flat by close).
+- **Batch mode**: Provide a 10‑day CSV → receive a table of timestamps, actions, and probabilities for offline evaluation/backtesting.
+
+### Operational framing (Phase B, 1‑hour constituents and index aggregation)
+- Scope: Multiple symbols (index constituents, e.g., NASDAQ‑100/QQQ), intraday 1‑hour OHLCV candles.
+- Horizon & cadence: Predict the next hour’s action (t+1) per symbol after each completed hourly candle; aggregate to an index signal once per hour.
+- History window: Use the latest W bars (e.g., 12–20 hours) for features; first W bars are warm‑up (no signal).
+- Labeling: Map next‑bar return to 5 classes via thresholds (t1 < t2). For 1‑hour bars, prefer dynamic thresholds (quantile- or volatility-based) validated via CV.
+- Per‑symbol outputs per hour: action, per‑class probabilities, confidence (max prob), timestamp_next.
+- Index aggregation: Convert actions to scores {strong_buy:+2, buy:+1, hold:0, sell:−1, strong_sell:−2}; compute Weighted Sentiment Score (WSS) = Σ(score_i × weight_i).
+- Index decision policy: If WSS ≥ +0.5 → BUY futures (/NQ). If WSS ≤ −0.5 → SELL futures. Otherwise HOLD. Tune thresholds by backtest.
+- Batch mode: Provide 21‑day 1‑hour CSVs for all constituents → receive per‑symbol tables, WSS time series, and final hourly signals for offline evaluation/backtesting.
 
 ### Solution overview
-- **Small, focused feature set**: log-returns, rolling mean/volatility, momentum (RSI-like), moving averages, ATR, and Bollinger Band width.
-- **Baseline model first**: scikit-learn classifier (RandomForest to start; LogisticRegression as a simple alternative) that is fast and easy to iterate on.
-- **Local experiment tracking**: MLflow to log metrics, parameters, and the model artifact.
-- **Local serving**: FastAPI endpoint for real-time predictions from the trained artifact.
-- **Tests**: unit tests for features and an API smoke test to ensure the core path works.
+- Phase A (done): focused features; 5‑class labels; RF baseline with candidate comparison (RF/ET/GB/HGBT/MLP/SVC/LogReg); MLflow + FastAPI; tests.
+- Phase B (next): 1‑hour OHLCV for index constituents; per‑symbol predictions + weighted aggregation (WSS) to emit /NQ signal; pooled training with symbol feature; champion–challenger.
+
+### Phase B (in progress)
+- Switching to 1‑hour OHLCV and pooled training across index constituents (e.g., NASDAQ‑100).
+- Aggregating per‑symbol actions to WSS and emitting /NQ signals; logging per‑symbol tables and WSS to MLflow.
 
 ### 💼 Business impact (single-asset local prototype)
 - **Consistency in decisions**: Map indicator signals to clear actions (strong_sell/sell/hold/buy/strong_buy), reducing emotional noise.
@@ -139,12 +161,7 @@ pytest -q
 - **Features**: log-returns, rolling mean/volatility, momentum (RSI-like), moving averages (short/long), ATR, Bollinger Band width, and simple price range ratios.
 - **Metrics logged (MLflow)**: overall accuracy, macro F1, per-class precision/recall/F1, confusion matrix artifact, and PR/ROC where applicable.
 
-Example outcomes from the earlier implementation (for reference, will be recomputed locally on this dataset):
-- Accuracy ~ 0.69
-- Macro F1 ~ 0.72
-- Inference latency < 1s per sample
-
-We will treat these as directional targets only and rely on the new local dataset and runs for authoritative metrics.
+Example outcomes from earlier prototypes are directional targets only. Actual results depend on dataset, interval (5‑min vs 1‑hour), and seeds.
 
 ---
 
@@ -189,10 +206,10 @@ Environment variables are optional. Reasonable defaults will be embedded for loc
 
 ## 🗺️ Roadmap (post-confirmation)
 - Add a tiny `Makefile`/`tasks.py` for convenience (optional on Windows).
-- Add MLflow Model Registry and `@production` alias for API loading.
+- Add MLflow Model Registry and `@Production` alias for serving.
 - Add basic monitoring (Evidently) and a drift report generated locally.
-- Swap the sample CSV for a small real OHLCV snapshot with licensing-safe source and attribution.
-- Add Docker for local reproducibility (compose for MLflow UI).
+- Add Prefect flow for fetch → train_compare → gate → promote → predict_index.
+- Add Docker for local reproducibility (compose for MLflow UI + API).
 - Only after all the above are stable, consider a minimal cloud target.
 
 
