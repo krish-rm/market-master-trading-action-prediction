@@ -12,7 +12,6 @@ from pydantic import BaseModel
 
 from .features import FeatureParams, LabelParams, build_dataset
 
-
 ARTIFACTS_DIR = Path("artifacts/model")
 MODEL_PATH = ARTIFACTS_DIR / "model.pkl"
 META_PATH = ARTIFACTS_DIR / "metadata.json"
@@ -51,7 +50,11 @@ LPARAMS = LabelParams(**META.get("label_params", {}))
 def health() -> Dict[str, Any]:
     return {
         "status": "ok",
-        "model_source": f"registry:{REGISTRY_MODEL_NAME}@{REGISTRY_ALIAS}" if MODEL else str(MODEL_PATH),
+        "model_source": (
+            f"registry:{REGISTRY_MODEL_NAME}@{REGISTRY_ALIAS}"
+            if MODEL
+            else str(MODEL_PATH)
+        ),
         "feature_columns": FEATURE_COLS,
     }
 
@@ -59,13 +62,17 @@ def health() -> Dict[str, Any]:
 def _predict_component(symbol: str, interval: str = "1h") -> Dict[str, Any]:
     csv_path = COMPONENTS_DIR / f"{symbol.upper()}_{interval}.csv"
     if not csv_path.exists():
-        raise HTTPException(status_code=404, detail=f"Component data not found for {symbol} {interval}")
+        raise HTTPException(
+            status_code=404, detail=f"Component data not found for {symbol} {interval}"
+        )
     raw = pd.read_csv(csv_path, parse_dates=["timestamp"])  # timestamp, ohlcv
     if raw.empty:
         raise HTTPException(status_code=400, detail="Empty component history")
     ds, _ = build_dataset(raw, FPARAMS, LPARAMS)
     if len(ds) == 0:
-        raise HTTPException(status_code=400, detail="Insufficient history after warm-up")
+        raise HTTPException(
+            status_code=400, detail="Insufficient history after warm-up"
+        )
 
     # Build feature row. Training used symbol one-hot columns prefixed by sym_
     sym_cols = [c for c in FEATURE_COLS if c.startswith("sym_")]
@@ -97,7 +104,10 @@ def _predict_component(symbol: str, interval: str = "1h") -> Dict[str, Any]:
 
 
 @app.get("/predict/component")
-def predict_component(symbol: str = Query(..., description="Ticker symbol, e.g., NVDA"), interval: str = "1h") -> Dict[str, Any]:
+def predict_component(
+    symbol: str = Query(..., description="Ticker symbol, e.g., NVDA"),
+    interval: str = "1h",
+) -> Dict[str, Any]:
     try:
         return _predict_component(symbol, interval)
     except HTTPException:
@@ -114,9 +124,14 @@ def _action_to_score(action: str) -> int:
 @app.get("/signal/index")
 def signal_index(universe: str = "qqq", interval: str = "1h") -> Dict[str, Any]:
     if universe.lower() != "qqq":
-        raise HTTPException(status_code=400, detail="Unsupported universe; only 'qqq' is available in MVP")
+        raise HTTPException(
+            status_code=400,
+            detail="Unsupported universe; only 'qqq' is available in MVP",
+        )
     if not WEIGHTS_DEFAULT.exists():
-        raise HTTPException(status_code=500, detail="Weights file missing. Fetch weights first.")
+        raise HTTPException(
+            status_code=500, detail="Weights file missing. Fetch weights first."
+        )
     w = pd.read_csv(WEIGHTS_DEFAULT)
     w["symbol"] = w["symbol"].astype(str).str.upper()
     total = w["weight"].sum()
@@ -130,7 +145,9 @@ def signal_index(universe: str = "qqq", interval: str = "1h") -> Dict[str, Any]:
         except HTTPException:
             continue
     if not rows:
-        raise HTTPException(status_code=500, detail="No component predictions available")
+        raise HTTPException(
+            status_code=500, detail="No component predictions available"
+        )
 
     df = pd.DataFrame(rows).merge(w, on="symbol", how="left")
     df["score"] = df["action"].apply(_action_to_score)
@@ -141,66 +158,74 @@ def signal_index(universe: str = "qqq", interval: str = "1h") -> Dict[str, Any]:
     per_symbol = df.sort_values("weight", ascending=False)[
         ["symbol", "action", "confidence", "weight"]
     ].to_dict(orient="records")
-    return {"wss": wss, "signal": signal, "timestamp_next": next_ts, "per_symbol": per_symbol}
+    return {
+        "wss": wss,
+        "signal": signal,
+        "timestamp_next": next_ts,
+        "per_symbol": per_symbol,
+    }
 
 
 # ---- Optional POST /predict for rubric compliance (accepts recent bars) ----
 
+
 class Bar(BaseModel):
-	timestamp: Optional[str] = None
-	open: float
-	high: float
-	low: float
-	close: float
-	volume: float
+    timestamp: Optional[str] = None
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float
 
 
 class PredictRequest(BaseModel):
-	symbol: str
-	interval: str = "1h"
-	bars: List[Bar]
+    symbol: str
+    interval: str = "1h"
+    bars: List[Bar]
 
 
 @app.post("/predict")
 def predict(req: PredictRequest) -> Dict[str, Any]:
-	try:
-		# Convert bars to DataFrame
-		rows = [b.dict() for b in req.bars]
-		raw = pd.DataFrame(rows)
-		if "timestamp" in raw.columns:
-			try:
-				raw["timestamp"] = pd.to_datetime(raw["timestamp"], utc=True, errors="coerce")
-			except Exception:
-				pass
-		# Build dataset and take last available row after warm-up
-		ds, _ = build_dataset(raw, FPARAMS, LPARAMS)
-		if len(ds) == 0:
-			raise HTTPException(status_code=400, detail="Insufficient history after warm-up")
-		# Assemble feature vector with symbol one-hot
-		sym_cols = [c for c in FEATURE_COLS if c.startswith("sym_")]
-		base_cols = [c for c in FEATURE_COLS if c not in sym_cols]
-		x_base = ds.iloc[[-1]][base_cols]
-		sym_row = {c: 0.0 for c in sym_cols}
-		sym_key = f"sym_{req.symbol.upper()}"
-		if sym_key in sym_row:
-			sym_row[sym_key] = 1.0
-		x_sym = pd.DataFrame([sym_row]) if sym_cols else pd.DataFrame()
-		x = pd.concat([x_base.reset_index(drop=True), x_sym], axis=1)
-		x = x[FEATURE_COLS]
-		proba = MODEL.predict_proba(x)[0]
-		classes = list(MODEL.classes_)
-		pred_idx = int(proba.argmax())
-		action = classes[pred_idx]
-		probs = {str(c): float(p) for c, p in zip(classes, proba)}
-		return {
-			"symbol": req.symbol.upper(),
-			"action": action,
-			"confidence": float(proba[pred_idx]),
-			"probabilities": probs,
-		}
-	except HTTPException:
-		raise
-	except Exception as e:
-		raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")
-
-
+    try:
+        # Convert bars to DataFrame
+        rows = [b.dict() for b in req.bars]
+        raw = pd.DataFrame(rows)
+        if "timestamp" in raw.columns:
+            try:
+                raw["timestamp"] = pd.to_datetime(
+                    raw["timestamp"], utc=True, errors="coerce"
+                )
+            except Exception:
+                pass
+        # Build dataset and take last available row after warm-up
+        ds, _ = build_dataset(raw, FPARAMS, LPARAMS)
+        if len(ds) == 0:
+            raise HTTPException(
+                status_code=400, detail="Insufficient history after warm-up"
+            )
+        # Assemble feature vector with symbol one-hot
+        sym_cols = [c for c in FEATURE_COLS if c.startswith("sym_")]
+        base_cols = [c for c in FEATURE_COLS if c not in sym_cols]
+        x_base = ds.iloc[[-1]][base_cols]
+        sym_row = {c: 0.0 for c in sym_cols}
+        sym_key = f"sym_{req.symbol.upper()}"
+        if sym_key in sym_row:
+            sym_row[sym_key] = 1.0
+        x_sym = pd.DataFrame([sym_row]) if sym_cols else pd.DataFrame()
+        x = pd.concat([x_base.reset_index(drop=True), x_sym], axis=1)
+        x = x[FEATURE_COLS]
+        proba = MODEL.predict_proba(x)[0]
+        classes = list(MODEL.classes_)
+        pred_idx = int(proba.argmax())
+        action = classes[pred_idx]
+        probs = {str(c): float(p) for c, p in zip(classes, proba)}
+        return {
+            "symbol": req.symbol.upper(),
+            "action": action,
+            "confidence": float(proba[pred_idx]),
+            "probabilities": probs,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {e}")

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +14,18 @@ def _normalize_df(df: pd.DataFrame, tz_ny: pytz.BaseTzInfo) -> pd.DataFrame:
         chosen_level = None
         for lvl in range(df.columns.nlevels):
             vals = [str(v).lower() for v in df.columns.get_level_values(lvl)]
-            if any(k in vals for k in ["open", "high", "low", "close", "adj close", "adj_close", "volume"]):
+            if any(
+                k in vals
+                for k in [
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "adj close",
+                    "adj_close",
+                    "volume",
+                ]
+            ):
                 chosen_level = lvl
                 break
         if chosen_level is not None:
@@ -28,7 +40,9 @@ def _normalize_df(df: pd.DataFrame, tz_ny: pytz.BaseTzInfo) -> pd.DataFrame:
     required = ["open", "high", "low", "close", "volume"]
     missing = [c for c in required if c not in df.columns]
     if missing:
-        raise RuntimeError(f"Missing columns from provider: {missing}. Got: {list(df.columns)}")
+        raise RuntimeError(
+            f"Missing columns from provider: {missing}. Got: {list(df.columns)}"
+        )
 
     if isinstance(df.index, pd.DatetimeIndex):
         if df.index.tz is None:
@@ -57,27 +71,53 @@ def _normalize_df(df: pd.DataFrame, tz_ny: pytz.BaseTzInfo) -> pd.DataFrame:
 def fetch_symbol(symbol: str, interval: str, days: int) -> pd.DataFrame:
     tz_ny = pytz.timezone("America/New_York")
     period_days = max(days, 14)
-    try:
-        df = yf.download(
-            symbol,
-            interval=interval,
-            period=f"{period_days}d",
-            auto_adjust=True,
-            prepost=False,
-            progress=False,
-            threads=False,
-        )
-    except Exception:
-        df = pd.DataFrame()
-    if df is None or df.empty:
+
+    # Try multiple methods with retries
+    max_retries = 3
+    for attempt in range(max_retries):
+        try:
+            # Method 1: yf.download
+            df = yf.download(
+                symbol,
+                interval=interval,
+                period=f"{period_days}d",
+                auto_adjust=True,
+                prepost=False,
+                progress=False,
+                threads=False,
+                timeout=30,
+            )
+            if df is not None and not df.empty:
+                return _normalize_df(df, tz_ny)
+        except Exception as e:
+            print(f"Attempt {attempt + 1} - yf.download failed for {symbol}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2**attempt)  # Exponential backoff
+            continue
+
+    # Method 2: yf.Ticker
+    for attempt in range(max_retries):
         try:
             t = yf.Ticker(symbol)
-            df = t.history(period=f"{period_days}d", interval=interval, actions=False, prepost=False)
-        except Exception:
-            df = pd.DataFrame()
-    if df is None or df.empty:
-        raise RuntimeError(f"No data returned from yfinance for {symbol} {interval} (both methods).")
-    return _normalize_df(df, tz_ny)
+            df = t.history(
+                period=f"{period_days}d",
+                interval=interval,
+                actions=False,
+                prepost=False,
+            )
+            if df is not None and not df.empty:
+                return _normalize_df(df, tz_ny)
+        except Exception as e:
+            print(f"Attempt {attempt + 1} - yf.Ticker failed for {symbol}: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2**attempt)  # Exponential backoff
+            continue
+
+    # If all methods fail, raise error with more details
+    raise RuntimeError(
+        f"No data returned from yfinance for {symbol} {interval} "
+        f"after {max_retries} attempts with both methods."
+    )
 
 
 def save_csv(df: pd.DataFrame, path: Path) -> None:
@@ -103,5 +143,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

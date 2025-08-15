@@ -12,7 +12,9 @@ from .features import FeatureParams, LabelParams, build_dataset
 def load_csv(path: str | Path) -> pd.DataFrame:
     df = pd.read_csv(path)
     # Ensure timestamp is datetime (timezone-naive okay for modeling)
-    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert("America/New_York")
+    df["timestamp"] = pd.to_datetime(df["timestamp"], utc=True).dt.tz_convert(
+        "America/New_York"
+    )
     return df
 
 
@@ -53,6 +55,7 @@ def save_metadata(
     dataset_info: Dict[str, str] | None = None,
 ) -> Path:
     import json
+
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     meta = {
@@ -66,5 +69,3 @@ def save_metadata(
     with meta_path.open("w", encoding="utf-8") as f:
         json.dump(meta, f, indent=2)
     return meta_path
-
-

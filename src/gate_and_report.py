@@ -7,7 +7,6 @@ from typing import Any, Dict
 import mlflow
 import pandas as pd
 
-
 MON_DIR = Path("data/monitoring")
 OUT_DIR = Path("artifacts/index")
 
@@ -55,10 +54,12 @@ def main() -> None:
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     mlflow.set_experiment("market-master-actions")
     with mlflow.start_run(run_name="promotion_gate"):
-        mlflow.log_metrics({
-            "drift_features": summary["drift_features"],
-            "macro_f1": summary["macro_f1"],
-        })
+        mlflow.log_metrics(
+            {
+                "drift_features": summary["drift_features"],
+                "macro_f1": summary["macro_f1"],
+            }
+        )
         mlflow.log_param("gate_passed", str(summary["passed"]))
         mlflow.log_artifact(out_path.as_posix(), artifact_path="gating")
     print(json.dumps(summary, indent=2))
@@ -66,5 +67,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

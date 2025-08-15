@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./mlruns:/app/mlruns
+    environment:
+      - MLFLOW_TRACKING_URI=sqlite:///mlflow.db
+    depends_on:
+      - mlflow
+    restart: unless-stopped
+
+  mlflow:
+    image: python:3.10-slim
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/app/mlruns
+      - ./mlflow.db:/app/mlflow.db
+    working_dir: /app
+    command: >
+      sh -c "pip install mlflow==2.13.0 &&
+             mlflow ui --backend-store-uri sqlite:///mlflow.db 
+                      --default-artifact-root ./mlruns 
+                      --host 0.0.0.0 --port 5000"
+    restart: unless-stopped
+
+networks:
+  default:
+    name: market-master-network

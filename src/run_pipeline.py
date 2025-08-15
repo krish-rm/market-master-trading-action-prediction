@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import argparse
+import subprocess
 from pathlib import Path
 
-from src.fetch_weights_qqq import fetch_qqq_holdings
 from src.fetch_symbol import fetch_symbol, save_csv
+from src.fetch_weights_qqq import fetch_qqq_holdings
 from src.train_pooled_compare import main as train_pooled_main
-import subprocess
 
 
 def step_weights(output_path: str = "data/weights/qqq_weights.csv") -> None:
@@ -17,7 +17,9 @@ def step_weights(output_path: str = "data/weights/qqq_weights.csv") -> None:
     print(f"[weights] saved {len(df)} rows -> {out}")
 
 
-def step_fetch_components(weights_path: str, interval: str, days: int, max_symbols: int | None) -> None:
+def step_fetch_components(
+    weights_path: str, interval: str, days: int, max_symbols: int | None
+) -> None:
     import pandas as pd
 
     w = pd.read_csv(weights_path)
@@ -25,14 +27,34 @@ def step_fetch_components(weights_path: str, interval: str, days: int, max_symbo
     symbols = w["symbol"].tolist()
     if max_symbols:
         symbols = symbols[:max_symbols]
+
     saved = 0
+    failed_symbols = []
+
     for sym in symbols:
-        df = fetch_symbol(sym, interval=interval, days=days)
-        tail_n = 820 if interval == "5m" else 220
-        df = df.tail(tail_n)
-        save_csv(df, Path(f"data/components/{sym}_{interval}.csv"))
-        saved += 1
+        try:
+            print(f"Fetching data for {sym}...")
+            df = fetch_symbol(sym, interval=interval, days=days)
+            tail_n = 820 if interval == "5m" else 220
+            df = df.tail(tail_n)
+            save_csv(df, Path(f"data/components/{sym}_{interval}.csv"))
+            saved += 1
+            print(f"Successfully saved {sym}")
+        except Exception as e:
+            print(f"Failed to fetch {sym}: {e}")
+            failed_symbols.append(sym)
+            continue
+
     print(f"[fetch] saved {saved}/{len(symbols)} symbols to data/components")
+    if failed_symbols:
+        print(f"Failed symbols: {failed_symbols}")
+
+    # If no symbols were successfully fetched, raise an error
+    if saved == 0:
+        raise RuntimeError(
+            "No symbols were successfully fetched. "
+            "Check network connectivity and API availability."
+        )
 
 
 def main() -> None:
@@ -43,27 +65,37 @@ def main() -> None:
     args = parser.parse_args()
 
     step_weights()
-    step_fetch_components("data/weights/qqq_weights.csv", args.interval, args.days, args.max_symbols)
+    step_fetch_components(
+        "data/weights/qqq_weights.csv",
+        args.interval,
+        args.days,
+        args.max_symbols
+    )
     print("[train] pooled compare + select best")
     train_pooled_main()
     print("[signal] index WSS + decision")
-    subprocess.run([
-        "python",
-        "-m",
-        "src.predict_index",
-        "--weights",
-        "data/weights/qqq_weights.csv",
-        "--interval",
-        args.interval,
-    ], check=True)
+    subprocess.run(
+        [
+            "python",
+            "-m",
+            "src.predict_index",
+            "--weights",
+            "data/weights/qqq_weights.csv",
+            "--interval",
+            args.interval,
+        ],
+        check=True,
+    )
     print("[monitor] drift + classification quality")
     subprocess.run(["python", "-m", "src.monitor_drift"], check=True)
     print("[gate] promotion decision")
     subprocess.run(["python", "-m", "src.gate_and_report"], check=True)
-    # If gate passed, promote Staging to Production in MLflow Model Registry (best-effort)
+    # If gate passed, promote Staging to Production in MLflow Model Registry
+    # (best-effort)
     try:
         import mlflow
         from mlflow.tracking import MlflowClient
+
         mlflow.set_tracking_uri("sqlite:///mlflow.db")
         client = MlflowClient()
         name = "market-master-component-classifier"
@@ -78,5 +110,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

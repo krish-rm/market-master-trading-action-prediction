@@ -6,7 +6,6 @@ from typing import Optional
 import mlflow
 from mlflow.tracking import MlflowClient
 
-
 MODEL_NAME = "market-master-component-classifier"
 
 
@@ -24,7 +23,9 @@ def rollback(target_version: Optional[int] = None) -> None:
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     client = MlflowClient()
     current = client.get_model_version_by_alias(MODEL_NAME, "Production")
-    current_ver = int(current.version) if current and getattr(current, "version", None) else None
+    current_ver = (
+        int(current.version) if current and getattr(current, "version", None) else None
+    )
     versions = sorted(
         [int(v.version) for v in client.search_model_versions(f"name='{MODEL_NAME}'")],
         reverse=True,
@@ -44,16 +45,29 @@ def rollback(target_version: Optional[int] = None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="Registry utilities")
     g = parser.add_mutually_exclusive_group(required=True)
-    g.add_argument("--promote", action="store_true", help="Promote Staging to Production")
-    g.add_argument("--rollback", action="store_true", help="Rollback Production to previous or specific version")
-    parser.add_argument("--to-version", type=int, default=None, help="Explicit version to promote/rollback to")
+    g.add_argument(
+        "--promote", action="store_true", help="Promote Staging to Production"
+    )
+    g.add_argument(
+        "--rollback",
+        action="store_true",
+        help="Rollback Production to previous or specific version",
+    )
+    parser.add_argument(
+        "--to-version",
+        type=int,
+        default=None,
+        help="Explicit version to promote/rollback to",
+    )
     args = parser.parse_args()
 
     if args.promote:
         if args.to_version is not None:
             mlflow.set_tracking_uri("sqlite:///mlflow.db")
             client = MlflowClient()
-            client.set_registered_model_alias(MODEL_NAME, "Production", int(args.to_version))
+            client.set_registered_model_alias(
+                MODEL_NAME, "Production", int(args.to_version)
+            )
             print(f"promoted explicit: {MODEL_NAME} -> Production v{args.to_version}")
         else:
             promote()
@@ -63,5 +77,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
-

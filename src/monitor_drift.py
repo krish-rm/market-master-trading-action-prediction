@@ -14,7 +14,6 @@ from sklearn.metrics import classification_report
 
 from .features import FeatureParams, LabelParams, build_dataset
 
-
 ARTIFACTS_DIR = Path("artifacts/model")
 META_PATH = ARTIFACTS_DIR / "metadata.json"
 MODEL_PATH = ARTIFACTS_DIR / "model.pkl"
@@ -30,7 +29,9 @@ def load_meta() -> Tuple[List[str], FeatureParams, LabelParams]:
     return feature_cols, fparams, lparams
 
 
-def load_pooled_dataset(feature_params: FeatureParams, label_params: LabelParams) -> Tuple[pd.DataFrame, List[str]]:
+def load_pooled_dataset(
+    feature_params: FeatureParams, label_params: LabelParams
+) -> Tuple[pd.DataFrame, List[str]]:
     pooled: List[pd.DataFrame] = []
     last_feat_cols: List[str] = []
     for csv_path in sorted(COMPONENTS_DIR.glob("*_1h.csv")):
@@ -51,18 +52,24 @@ def load_pooled_dataset(feature_params: FeatureParams, label_params: LabelParams
     return ds, feature_columns
 
 
-def split_reference_current(ds: pd.DataFrame, ref_ratio: float = 0.7) -> Tuple[pd.DataFrame, pd.DataFrame]:
+def split_reference_current(
+    ds: pd.DataFrame, ref_ratio: float = 0.7
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     split_idx = int(len(ds) * ref_ratio)
     ref = ds.iloc[:split_idx].reset_index(drop=True)
     cur = ds.iloc[split_idx:].reset_index(drop=True)
     return ref, cur
 
 
-def compute_feature_drift(ref: pd.DataFrame, cur: pd.DataFrame, feature_cols: List[str]) -> pd.DataFrame:
+def compute_feature_drift(
+    ref: pd.DataFrame, cur: pd.DataFrame, feature_cols: List[str]
+) -> pd.DataFrame:
     rows = []
     for col in feature_cols:
         # Skip non-numeric columns if any
-        if not np.issubdtype(ref[col].dtype, np.number) or not np.issubdtype(cur[col].dtype, np.number):
+        if not np.issubdtype(ref[col].dtype, np.number) or not np.issubdtype(
+            cur[col].dtype, np.number
+        ):
             continue
         r = ref[col].dropna().values
         c = cur[col].dropna().values
@@ -71,7 +78,14 @@ def compute_feature_drift(ref: pd.DataFrame, cur: pd.DataFrame, feature_cols: Li
             stat = np.nan
         else:
             stat, pval = ks_2samp(r, c)
-        rows.append({"feature": col, "ks_stat": float(stat) if stat == stat else None, "p_value": float(pval) if pval == pval else None, "drift_flag": bool(pval is not None and pval < 0.05)})
+        rows.append(
+            {
+                "feature": col,
+                "ks_stat": float(stat) if stat == stat else None,
+                "p_value": float(pval) if pval == pval else None,
+                "drift_flag": bool(pval is not None and pval < 0.05),
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -87,7 +101,9 @@ def plot_top_drift(drift_df: pd.DataFrame, out_path: Path, top_n: int = 10) -> N
     plt.close()
 
 
-def compute_classification_quality(model, cur: pd.DataFrame, feature_cols: List[str]) -> Dict[str, any]:
+def compute_classification_quality(
+    model, cur: pd.DataFrame, feature_cols: List[str]
+) -> Dict[str, any]:
     X = cur[feature_cols]
     y = cur["action"].astype(str)
     y_pred = model.predict(X)
@@ -120,13 +136,13 @@ def main() -> None:
         mlflow.log_artifact(drift_plot.as_posix(), artifact_path="monitoring")
         mlflow.log_artifact(qual_json.as_posix(), artifact_path="monitoring")
         # Simple aggregated metrics
-        mlflow.log_metrics({
-            "drift_features": int(drift_df["drift_flag"].sum(skipna=True)),
-        })
+        mlflow.log_metrics(
+            {
+                "drift_features": int(drift_df["drift_flag"].sum(skipna=True)),
+            }
+        )
     print(f"Saved drift and classification quality reports to {MON_DIR}")
 
 
 if __name__ == "__main__":
     main()
-
-

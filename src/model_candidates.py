@@ -21,12 +21,20 @@ def get_candidates() -> Dict[str, Tuple[object, Dict[str, List]]]:
     """
     return {
         "logreg": (
-            LogisticRegression(max_iter=2000, solver="saga", multi_class="multinomial", n_jobs=-1),
+            LogisticRegression(
+                max_iter=2000, solver="saga", multi_class="multinomial", n_jobs=-1
+            ),
             {"C": [0.2, 0.5, 1.0, 2.0], "penalty": ["l2"]},
         ),
         "rf": (
-            RandomForestClassifier(random_state=42, n_jobs=-1, class_weight="balanced_subsample"),
-            {"n_estimators": [200, 400], "min_samples_leaf": [1, 2], "max_depth": [None, 12]},
+            RandomForestClassifier(
+                random_state=42, n_jobs=-1, class_weight="balanced_subsample"
+            ),
+            {
+                "n_estimators": [200, 400],
+                "min_samples_leaf": [1, 2],
+                "max_depth": [None, 12],
+            },
         ),
         "et": (
             ExtraTreesClassifier(random_state=42, n_jobs=-1, class_weight="balanced"),
@@ -49,5 +57,3 @@ def get_candidates() -> Dict[str, Tuple[object, Dict[str, List]]]:
             {"C": [0.5, 1.0, 2.0], "kernel": ["rbf"]},
         ),
     }
-
-

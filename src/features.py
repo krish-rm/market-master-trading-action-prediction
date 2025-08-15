@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, List, Tuple
+from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
@@ -44,7 +44,9 @@ def compute_rsi_like(close: pd.Series, window: int, eps: float) -> pd.Series:
     return rsi
 
 
-def compute_atr(high: pd.Series, low: pd.Series, close: pd.Series, window: int) -> pd.Series:
+def compute_atr(
+    high: pd.Series, low: pd.Series, close: pd.Series, window: int
+) -> pd.Series:
     prev_close = close.shift(1)
     tr1 = (high - low).abs()
     tr2 = (high - prev_close).abs()
@@ -80,12 +82,24 @@ def build_features(df: pd.DataFrame, params: FeatureParams) -> pd.DataFrame:
     df["body_rel"] = (df["close"] - df["open"]) / df["close"].replace(0, np.nan)
 
     # Moving averages and momentum
-    df["ma_s"] = df["close"].rolling(params.window_small_ma, min_periods=params.window_small_ma).mean()
-    df["ma_l"] = df["close"].rolling(params.window_large_ma, min_periods=params.window_large_ma).mean()
+    df["ma_s"] = (
+        df["close"]
+        .rolling(params.window_small_ma, min_periods=params.window_small_ma)
+        .mean()
+    )
+    df["ma_l"] = (
+        df["close"]
+        .rolling(params.window_large_ma, min_periods=params.window_large_ma)
+        .mean()
+    )
     df["ma_cross"] = (df["ma_s"] - df["ma_l"]) / df["ma_l"].replace(0, np.nan)
 
     # Volatility
-    df["volatility"] = df["close"].rolling(params.window_volatility, min_periods=params.window_volatility).std(ddof=0)
+    df["volatility"] = (
+        df["close"]
+        .rolling(params.window_volatility, min_periods=params.window_volatility)
+        .std(ddof=0)
+    )
 
     # RSI-like
     df["rsi"] = compute_rsi_like(df["close"], params.window_rsi, params.rsi_eps)
@@ -107,7 +121,11 @@ def build_labels(df: pd.DataFrame, label_params: LabelParams) -> pd.DataFrame:
     t1, t2 = label_params.threshold_t1, label_params.threshold_t2
     bins = [-np.inf, -t2, -t1, t1, t2, np.inf]
     df["action"] = pd.cut(
-        df["r_next"], bins=bins, labels=ACTION_LABELS, right=True, include_lowest=True
+        df["r_next"],
+        bins=bins,
+        labels=ACTION_LABELS,
+        right=True,
+        include_lowest=True
     )
     df = df.dropna(subset=["action"]).reset_index(drop=True)
     return df
@@ -118,7 +136,8 @@ def build_dataset(
 ) -> Tuple[pd.DataFrame, List[str]]:
     """Return feature frame with labels and the list of feature column names.
 
-    Drops initial warm-up rows where rolling features are NaN and the last row with no label.
+    Drops initial warm-up rows where rolling features are NaN and the last row
+    with no label.
     """
     df = build_features(raw_df, feature_params)
     # Determine warm-up based on the largest window
@@ -148,5 +167,3 @@ def build_dataset(
     # Ensure no NaNs remain in features
     df = df.dropna(subset=feature_columns).reset_index(drop=True)
     return df, feature_columns
-
-
