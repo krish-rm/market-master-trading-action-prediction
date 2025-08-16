@@ -61,10 +61,11 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 ## 📊 Models & Metrics
 
 - **Target**: 5‑class action: {strong_sell, sell, hold, buy, strong_buy}.
-- **Candidates**: RF/ET/GB/HGBT/MLP/SVC/LogReg trained on pooled dataset (one‑hot `symbol`).
+- **Candidates**: Random Forest (RF), Extra Trees (ET), Gradient Boosting (GB), Histogram Gradient Boosting (HGBT), Multi-layer Perceptron (MLP), Support Vector Classifier (SVC), and Logistic Regression (LogReg) trained on pooled dataset (one‑hot `symbol`).
 - **Features**: log‑returns, rolling mean/volatility, RSI‑like momentum, MAs (short/long), ATR, Bollinger Band width, range ratios.
-- **Selection**: macro F1 on time‑based split; accuracy as tiebreaker.
-- **Logging (MLflow)**: params, metrics, per‑candidate artifacts; champion registered as `market-master-component-classifier` with alias `Staging` → gated promotion to `Production`.
+- **Selection**: All candidates are evaluated using macro F1 score on a time-based split (latest 20% of data for validation). The model with the highest macro F1 score is selected as the champion. In case of ties, accuracy is used as a tiebreaker.
+- **Champion Deployment**: The winning model is automatically registered in MLflow Model Registry as `market-master-component-classifier` with the `Staging` alias. After passing quality gates (drift detection and performance thresholds), it's promoted to `Production` alias for serving.
+- **Logging (MLflow)**: All training parameters, metrics, and artifacts are logged for each candidate. The champion's model files, metadata, and performance metrics are stored for reproducibility and monitoring.
 
 
 ---
