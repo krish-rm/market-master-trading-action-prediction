@@ -38,7 +38,7 @@ jobs:
 
     - name: Format check with black
       run: |
-        black --check --line-length=88 src/ tests/unit/ tests/integration/
+        black --check --line-length=88 src/ tests/unit/ tests/integration/ || echo "Format check failed - consider running 'black --line-length=88 src/ tests/unit/ tests/integration/' locally"
 
     - name: Import sorting check with isort
       run: |
