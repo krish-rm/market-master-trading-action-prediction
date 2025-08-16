@@ -8,6 +8,8 @@ import joblib
 import mlflow
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
 from matplotlib import pyplot as plt
 from scipy.stats import ks_2samp
 from sklearn.metrics import classification_report

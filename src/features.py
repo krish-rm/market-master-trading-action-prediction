@@ -121,11 +121,7 @@ def build_labels(df: pd.DataFrame, label_params: LabelParams) -> pd.DataFrame:
     t1, t2 = label_params.threshold_t1, label_params.threshold_t2
     bins = [-np.inf, -t2, -t1, t1, t2, np.inf]
     df["action"] = pd.cut(
-        df["r_next"],
-        bins=bins,
-        labels=ACTION_LABELS,
-        right=True,
-        include_lowest=True
+        df["r_next"], bins=bins, labels=ACTION_LABELS, right=True, include_lowest=True
     )
     df = df.dropna(subset=["action"]).reset_index(drop=True)
     return df

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import subprocess
 
-
 from src.run_pipeline import step_fetch_components, step_weights
 
 

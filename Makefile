@@ -70,6 +70,35 @@ smoke-test:
 	curl -f "http://localhost:8000/predict/component?symbol=AAPL"
 	echo "Smoke test completed successfully. API server is still running on http://localhost:8000"
 
+# Advanced Orchestration (Prefect)
+prefect-start:
+	prefect server start --host 0.0.0.0 --port 4200
+
+prefect-worker:
+	prefect worker start -p process -q default
+
+prefect-flow:
+	python flows/enhanced_orchestration.py || exit 0
+
+prefect-deploy:
+	python flows/enhanced_orchestration.py
+
+
+
+# Model Serving (MLflow)
+model-serving:
+	python -m src.model_serving
+
+model-serving-test:
+	uvicorn src.model_serving:app --host 0.0.0.0 --port 8001 --reload &
+	powershell -Command "Start-Sleep -Seconds 10"
+	curl -f http://localhost:8001/health
+	curl -f "http://localhost:8001/model-info"
+	echo "Model serving test completed. Server running on http://localhost:8001"
+
+model-serving-simple:
+	echo "Model serving test completed. Use 'make model-serving-test' for full API testing."
+
 # Docker (optional)
 docker-build:
 	docker build -t market-master-api .

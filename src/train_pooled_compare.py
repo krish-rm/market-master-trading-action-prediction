@@ -6,7 +6,6 @@ from typing import Dict, List, Tuple
 
 import joblib
 import mlflow
-
 import pandas as pd
 from mlflow.tracking import MlflowClient
 from sklearn.metrics import accuracy_score, f1_score
@@ -148,10 +147,9 @@ def main() -> None:
         best_model = joblib.load(best_src)
         joblib.dump(best_model, final_path)
         mlflow.log_param("best_model", best["name"])  # type: ignore
-        mlflow.log_metrics({
-            "best_f1_macro": best["f1_macro"],
-            "best_accuracy": best["acc"]
-        })  # type: ignore
+        mlflow.log_metrics(
+            {"best_f1_macro": best["f1_macro"], "best_accuracy": best["acc"]}
+        )  # type: ignore
 
         meta_path = save_metadata(
             ARTIFACTS_DIR,
@@ -191,11 +189,16 @@ def main() -> None:
             # (registry is optional in local MVP)
             print(json.dumps({"registry_warning": str(e)}))
 
-        print(json.dumps({
-            "best_model": best["name"],
-            "f1_macro": best["f1_macro"],
-            "accuracy": best["acc"]
-        }, indent=2))  # type: ignore
+        print(
+            json.dumps(
+                {
+                    "best_model": best["name"],
+                    "f1_macro": best["f1_macro"],
+                    "accuracy": best["acc"],
+                },
+                indent=2,
+            )
+        )  # type: ignore
 
 
 if __name__ == "__main__":

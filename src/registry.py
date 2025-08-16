@@ -16,13 +16,13 @@ def promote(alias_from: str = "Staging", alias_to: str = "Production") -> None:
     versions = client.search_model_versions(f"name='{MODEL_NAME}'")
     src_version = None
     for v in versions:
-        if hasattr(v, 'aliases') and alias_from in v.aliases:
+        if hasattr(v, "aliases") and alias_from in v.aliases:
             src_version = v.version
             break
-    
+
     if not src_version:
         raise RuntimeError(f"No version tagged {alias_from}")
-    
+
     # Set the target alias
     client.set_registered_model_alias(MODEL_NAME, alias_to, int(src_version))
     print(f"promoted: {MODEL_NAME} v{src_version} -> {alias_to}")
@@ -35,7 +35,7 @@ def rollback(target_version: Optional[int] = None) -> None:
     versions = client.search_model_versions(f"name='{MODEL_NAME}'")
     current_ver = None
     for v in versions:
-        if hasattr(v, 'aliases') and 'Production' in v.aliases:
+        if hasattr(v, "aliases") and "Production" in v.aliases:
             current_ver = int(v.version)
             break
     versions = sorted(

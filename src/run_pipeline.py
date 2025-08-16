@@ -66,10 +66,7 @@ def main() -> None:
 
     step_weights()
     step_fetch_components(
-        "data/weights/qqq_weights.csv",
-        args.interval,
-        args.days,
-        args.max_symbols
+        "data/weights/qqq_weights.csv", args.interval, args.days, args.max_symbols
     )
     print("[train] pooled compare + select best")
     train_pooled_main()

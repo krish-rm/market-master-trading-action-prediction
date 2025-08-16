@@ -48,7 +48,7 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 | 🧠 Model         | scikit‑learn candidates (RF/ET/GB/HGBT/MLP/SVC/LogReg), LabelEncoder                 |
 | ⚙️ Features      | pandas, NumPy (returns, rolling stats, RSI‑like, MA, ATR, BB width)                  |
 | 📊 Monitoring    | Evidently                                                                            |
-| ⚙️ Orchestration | Runner script (`src/run_pipeline.py`) + Windows Task Scheduler; Prefect 2 (optional) |
+| ⚙️ Orchestration | Prefect 2 (task-based workflow orchestration) |
 | 📦 Tracking      | MLflow (SQLite) + Model Registry with aliases                                         |
 | 🌐 API           | FastAPI + Uvicorn                                                                    |
 | 🛢️ Storage       | Local files (CSV, `artifacts/`, `mlruns/`)                                           |
@@ -70,13 +70,15 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 ---
 
 ## 🚆 Execution Flow (Local)
-1) Fetch: QQQ weights → 1‑hour OHLCV per constituent to `data/components/`.
-2) Features/labels: rolling indicators and dynamic thresholds; persist metadata.
-3) Train/compare: candidates on pooled dataset; select champion; log to MLflow and register as Staging.
-4) Predict index: per‑symbol actions → WSS → /NQ signal; log table/WSS to MLflow.
-5) Monitor: Evidently drift and classification quality reports; log to MLflow.
-6) Gate: evaluate drift and F1 thresholds; if pass → promote Staging → Production.
-7) Serve: API loads Production model via registry.
+1) **Fetch**: QQQ weights → 1‑hour OHLCV per constituent to `data/components/`.
+2) **Features/labels**: rolling indicators and dynamic thresholds; persist metadata.
+3) **Train/compare**: candidates on pooled dataset; select champion; log to MLflow and register as Staging.
+4) **Predict index**: per‑symbol actions → WSS → /NQ signal; log table/WSS to MLflow.
+5) **Monitor**: Evidently drift and classification quality reports; log to MLflow.
+6) **Gate**: evaluate drift and F1 thresholds; if pass → promote Staging → Production.
+7) **Serve**: API loads Production model via registry.
+
+**Orchestration**: All steps are managed by Prefect tasks with proper logging, error handling, and conditional deployment.
 
 
 ---
@@ -84,7 +86,7 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 
 ## 🐳 Quickstart (Local)
 
-### Option A: Traditional Setup
+### Option A: Makefile Commands 
 
 1) Clone and enter the repo
 ```bash
@@ -106,31 +108,38 @@ source .venv/bin/activate
 python -m pip install -U pip
 ```
 
-3) Install deps
+3) Install dependencies
 ```bash
 pip install -r requirements.txt
 ```
 
 **Note**: The requirements.txt includes both production and development dependencies (black, flake8, isort, mypy, pre-commit) for code quality tools.
 
-4) Run the end‑to‑end pipeline (fetch → train/compare → predict index → monitor → gate → promote)
+4) Run the orchestrated pipeline
 ```bash
-python -m src.run_pipeline --interval 1h --days 30 --max-symbols 10
+# Run complete orchestrated pipeline (recommended)
+make prefect-flow
+
+# Alternative: Run non-orchestrated pipeline
+make pipeline
 ```
 
-5) Start MLflow UI (optional but recommended)
+5) Start monitoring and serving (optional)
 ```bash
-mlflow ui --backend-store-uri sqlite:///mlflow.db --default-artifact-root ./mlruns --port 5000
-# Open http://localhost:5000 in your browser
+# Start MLflow UI for experiment tracking
+make mlflow-ui
+
+# Start model serving API
+make model-serving
 ```
 
-6) Serve the API (loads Production model from MLflow registry with local fallback)
-```bash
-uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload
-# Open http://localhost:8000/docs for Swagger UI
-```
+6) Access services
+- API: http://localhost:8001/docs (Swagger UI)
+- MLflow UI: http://localhost:5000
 
-### Option B: Docker Setup (Recommended)
+**💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
+
+### Option B: Docker Setup
 
 1) Clone and enter the repo
 ```bash
@@ -141,9 +150,9 @@ cd market-master-trading-prediction-system
 2) Run the pipeline and start services
 ```bash
 # Run the full pipeline first
-python -m src.run_pipeline --interval 1h --days 7 --max-symbols 5
+make prefect-flow
 
-# Start API and MLflow UI with Docker Compose
+# Start services with Docker Compose
 docker-compose up -d
 ```
 
@@ -151,27 +160,46 @@ docker-compose up -d
 - API: http://localhost:8000/docs (Swagger UI)
 - MLflow UI: http://localhost:5000
 
-### Option C: Makefile Commands (Convenience)
+**💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
 
-```bash
-# Install dependencies
-make install
 
-# Run full pipeline
-make pipeline
+## 🛠️ Available Commands
 
-# Run smoke test (pipeline + API test)
-make smoke-test
+| Command | Purpose | When to Use |
+|---------|---------|-------------|
+| `make prefect-flow` | Run complete orchestrated pipeline | **Main command** - Start here |
+| `make pipeline` | Run full pipeline (non-orchestrated) | Alternative to prefect-flow |
+| `make smoke-test` | Quick pipeline + API test | Testing the system |
+| `make clean` | Remove all artifacts and data | Fresh start |
+| `make install` | Install dependencies | First time setup |
+| `make install-dev` | Install + pre-commit hooks | Development setup |
+| `make mlflow-ui` | Start MLflow experiment tracking | Monitor experiments |
+| `make model-serving` | Start model serving API | Serve predictions |
+| `make model-serving-test` | Test model serving endpoints | Validate API |
+| `make prefect-start` | Start Prefect server | Advanced orchestration |
+| `make prefect-worker` | Start Prefect worker | Advanced orchestration |
+| `make prefect-deploy` | Deploy scheduled flows | Advanced orchestration |
+| `make test` | Run all tests | Quality assurance |
+| `make test-unit` | Run unit tests only | Component testing |
+| `make test-integration` | Run integration tests only | System testing |
+| `make lint` | Run code linting | Code quality |
+| `make format` | Format code with black | Code formatting |
+| `make type-check` | Run type checking | Code quality |
+| `make docker-build` | Build Docker image | Containerization |
+| `make docker-run` | Start Docker services | Container deployment |
+| `make promote-staging` | Promote model to staging | Model management |
+| `make rollback-production` | Rollback production model | Model management |
 
-# Start MLflow UI
-make mlflow-ui
 
-# Clean artifacts
-make clean
+### **Model Serving API Endpoints**
+When using `make model-serving`, the following endpoints are available:
+- `GET /health` - Health check
+- `POST /predict` - Single prediction
+- `POST /predict/batch` - Batch predictions
+- `GET /model-info` - Model information
+- `POST /reload-model` - Reload model from registry
 
-# See all available commands
-make help
-```
+---
 
 7) Sample predictions
 - Single component (latest history from CSV):
@@ -307,7 +335,7 @@ pytest tests/integration/ -q
 │   ├── hourly_predict.py            # hourly scheduler entrypoint (Windows Task Scheduler)
 │   └── api.py                       # FastAPI serving (registry‑first model load)
 ├── flows/
-│   └── index_signal.py              # Prefect flow definition (optional)
+│   └── enhanced_orchestration.py    # Prefect flow definition
 └── tests/
     ├── unit/                        # Unit tests
     │   ├── test_features.py         # Feature engineering tests
@@ -328,7 +356,7 @@ pytest tests/integration/ -q
 - **Problem description**: Clearly defined 1‑hour constituent signals aggregated to an index decision.
 - **Cloud**: Local‑only with Docker containerization for reproducibility.
 - **Experiment tracking & registry**: MLflow tracking implemented; Model Registry with aliases implemented.
-- **Workflow orchestration**: Local runner (`src/run_pipeline.py`) and Windows Task Scheduler for hourly runs; Prefect flow included as optional.
+- **Workflow orchestration**: Prefect 2 task-based orchestration with proper logging, error handling, and conditional deployment.
 - **Model deployment**: FastAPI with `/health`, `/predict/component`, `/signal/index`, and `/predict`; loads registry `@Production` model with artifact fallback.
 - **Monitoring**: Evidently drift and classification quality reports saved to `data/monitoring/` and logged to MLflow.
 - **Reproducibility**: Pinned requirements, deterministic seeds, tests, and Docker containerization.
@@ -354,7 +382,7 @@ Environment variables are optional. Defaults are embedded for local use.
 - Expand to full NASDAQ‑100 constituents and improve symbol metadata.
 - Add probability calibration (e.g., Platt scaling) for selected models.
 - Tighten gates (delta F1 vs champion, latency SLO) and auto‑rollback on alerts.
-- Prefect pinning and UI deployment once dependency versions are aligned.
+- Prefect UI deployment and advanced scheduling features.
 - Cloud deployment (AWS/GCP) with managed MLflow and monitoring services.
 - Real-time data streaming integration for live trading signals.
 

@@ -47,8 +47,7 @@ def sanity_checks(symbols: List[str], interval: str) -> Dict[str, Dict]:
             total_expected = len(df)
             non_null_count = df[required_cols].notna().all(axis=1).sum()
             coverage_pct = (
-                (non_null_count / total_expected) * 100
-                if total_expected > 0 else 0
+                (non_null_count / total_expected) * 100 if total_expected > 0 else 0
             )
 
             # Missing bars check (assuming hourly data should have ~6.5 hours per
@@ -114,8 +113,7 @@ def main() -> None:
     results: List[Tuple[str, bool, str]] = []
     with ThreadPoolExecutor(max_workers=args.max_workers) as ex:
         futures = {
-            ex.submit(fetch_one, sym, args.interval, args.days): sym
-            for sym in symbols
+            ex.submit(fetch_one, sym, args.interval, args.days): sym for sym in symbols
         }
         for fut in as_completed(futures):
             results.append(fut.result())
