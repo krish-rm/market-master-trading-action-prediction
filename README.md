@@ -124,18 +124,22 @@ make prefect-flow
 make pipeline
 ```
 
-5) Start monitoring and serving (optional)
+5) Start monitoring and serving
 ```bash
-# Start MLflow UI for experiment tracking
+# Start MLflow UI for experiment tracking (open in new terminal)
 make mlflow-ui
 
-# Start model serving API
+# Start model serving API (open in new terminal)
 make model-serving
+
+# Start Prefect server (open in new terminal)
+make prefect-start
 ```
 
 6) Access services
 - API: http://localhost:8001/docs (Swagger UI)
 - MLflow UI: http://localhost:5000
+- Prefect dashboard: http://localhost:4200
 
 **💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
 
@@ -286,13 +290,17 @@ Response includes `action` in {"strong_sell","sell","hold","buy","strong_buy"} a
 
 8) Run tests
 ```bash
-# Run all tests
-pytest -q
+# Using Makefile (recommended)
+make test              # Run all tests
+make test-unit         # Run unit tests only
+make test-integration  # Run integration tests only
+make test-verbose      # Run tests with verbose output
+make test-coverage     # Run tests with coverage report
 
-# Run unit tests only
-pytest tests/unit/ -q
-
-# Run integration tests only
+# Direct pytest commands
+pytest -q              # Run all tests
+pytest tests/unit/ -q  # Run unit tests only
+pytest tests/integration/ -q  # Run integration tests only
 pytest tests/integration/ -q
 ```
 

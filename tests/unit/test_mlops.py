@@ -12,7 +12,7 @@ import pandas as pd
 
 from src.gate_and_report import gate
 from src.monitor_drift import compute_classification_quality, compute_feature_drift
-from src.registry import promote
+from src.registry import promote, rollback
 
 
 def test_compute_feature_drift():
@@ -110,13 +110,42 @@ def test_registry_operations():
     # For now, we test the function signatures and basic logic
 
     # Test promote function signature
-    with patch("src.registry.MlflowClient") as mock_client:
-        mock_client.return_value.get_model_version_by_alias.return_value = MagicMock(
-            version="1"
-        )
+    with patch("src.registry.MlflowClient") as mock_client_class:
+        # Mock the client instance
+        mock_client_instance = MagicMock()
+        mock_client_class.return_value = mock_client_instance
+        
+        # Mock successful promotion scenario - create mock model versions
+        mock_version = MagicMock()
+        mock_version.version = "1"
+        mock_version.aliases = ["Staging"]
+        
+        mock_client_instance.search_model_versions.return_value = [mock_version]
+        mock_client_instance.set_registered_model_alias.return_value = None
 
         # This should not raise an exception
         promote()
+
+    # Test rollback function signature
+    with patch("src.registry.MlflowClient") as mock_client_class:
+        # Mock the client instance
+        mock_client_instance = MagicMock()
+        mock_client_class.return_value = mock_client_instance
+        
+        # Mock successful rollback scenario - create mock model versions
+        mock_version1 = MagicMock()
+        mock_version1.version = "1"
+        mock_version1.aliases = ["Production"]
+        
+        mock_version2 = MagicMock()
+        mock_version2.version = "2"
+        mock_version2.aliases = []
+        
+        mock_client_instance.search_model_versions.return_value = [mock_version1, mock_version2]
+        mock_client_instance.set_registered_model_alias.return_value = None
+
+        # This should not raise an exception
+        rollback()
 
 
 def test_model_metadata():
