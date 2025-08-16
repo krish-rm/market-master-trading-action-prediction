@@ -48,12 +48,15 @@ pre-commit-all:
 	pre-commit run --all-files
 
 clean:
-	rm -rf mlruns/
-	rm -rf artifacts/
-	rm -rf data/components/
-	rm -rf data/monitoring/
-	find . -type f -name "*.pyc" -delete
-	find . -type d -name "__pycache__" -delete
+	powershell -Command "if (Test-Path 'mlruns') { Remove-Item -Recurse -Force 'mlruns' }"
+	powershell -Command "if (Test-Path 'artifacts') { Remove-Item -Recurse -Force 'artifacts' }"
+	powershell -Command "if (Test-Path 'data\\components') { Remove-Item -Recurse -Force 'data\\components' }"
+	powershell -Command "if (Test-Path 'data\\monitoring') { Remove-Item -Recurse -Force 'data\\monitoring' }"
+	powershell -Command "if (Test-Path 'data\\weights') { Remove-Item -Recurse -Force 'data\\weights' }"
+	powershell -Command "if (Test-Path 'data') { Remove-Item -Force 'data' }"
+	powershell -Command "Get-ChildItem -Recurse -Filter '*.pyc' | Remove-Item -Force"
+	powershell -Command "Get-ChildItem -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force"
+	echo "Cleanup completed"
 
 # Pipeline
 pipeline:
@@ -62,10 +65,10 @@ pipeline:
 smoke-test:
 	python -m src.run_pipeline --interval 1h --days 7 --max-symbols 5
 	uvicorn src.api:app --host 0.0.0.0 --port 8000 --reload &
-	sleep 5
+	powershell -Command "Start-Sleep -Seconds 5"
 	curl -f http://localhost:8000/health
 	curl -f "http://localhost:8000/predict/component?symbol=AAPL"
-	pkill -f "uvicorn src.api:app"
+	echo "Smoke test completed successfully. API server is still running on http://localhost:8000"
 
 # Docker (optional)
 docker-build:

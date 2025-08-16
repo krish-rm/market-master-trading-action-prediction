@@ -10,6 +10,14 @@ import requests
 
 
 def fetch_qqq_holdings() -> pd.DataFrame:
+    """
+    Fetch QQQ holdings weights from external API with fallback to built-in data.
+    
+    The system tries to fetch live weights from Slickcharts, but if that fails
+    (404, network issues, parsing errors), it gracefully falls back to built-in
+    weights for the top 10 QQQ components. This ensures the pipeline continues
+    to work even when external APIs are unavailable.
+    """
     # Fetch holdings table from Slickcharts with headers to avoid 403
     url = "https://www.slickcharts.com/qqq"
     headers = {
@@ -25,6 +33,7 @@ def fetch_qqq_holdings() -> pd.DataFrame:
     }
 
     # Try multiple times with exponential backoff
+    print("Fetching QQQ index weights from external API...")
     max_retries = 3
     for attempt in range(max_retries):
         try:
@@ -32,7 +41,7 @@ def fetch_qqq_holdings() -> pd.DataFrame:
             if resp.status_code == 200:
                 break
             else:
-                print(f"Attempt {attempt + 1}: HTTP {resp.status_code}")
+                print(f"Attempt {attempt + 1}: HTTP {resp.status_code} (QQQ weights API unavailable)")
                 if attempt < max_retries - 1:
                     time.sleep(2**attempt)  # Exponential backoff
         except (requests.exceptions.RequestException, requests.exceptions.Timeout) as e:
@@ -41,7 +50,7 @@ def fetch_qqq_holdings() -> pd.DataFrame:
                 time.sleep(2**attempt)  # Exponential backoff
             continue
     else:
-        print("All attempts failed, using fallback data")
+        print("All attempts failed, using fallback data (this is normal - system continues with built-in QQQ weights)")
         # Fallback: minimal top holdings (approximate), normalized
         data = {
             "symbol": [
@@ -95,7 +104,7 @@ def fetch_qqq_holdings() -> pd.DataFrame:
             df["weight"] = df["weight"] / total
         return df
     except Exception as e:
-        print(f"Error parsing HTML tables: {e}, using fallback data")
+        print(f"Error parsing HTML tables: {e}, using fallback data (this is normal - system continues with built-in QQQ weights)")
         # Fallback: minimal top holdings (approximate), normalized
         data = {
             "symbol": [

@@ -47,7 +47,7 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 |------------------|--------------------------------------------------------------------------------------|
 | 🧠 Model         | scikit‑learn candidates (RF/ET/GB/HGBT/MLP/SVC/LogReg), LabelEncoder                 |
 | ⚙️ Features      | pandas, NumPy (returns, rolling stats, RSI‑like, MA, ATR, BB width)                  |
-| 📊 Monitoring    | Evidently (implemented)                                                               |
+| 📊 Monitoring    | Evidently                                                                            |
 | ⚙️ Orchestration | Runner script (`src/run_pipeline.py`) + Windows Task Scheduler; Prefect 2 (optional) |
 | 📦 Tracking      | MLflow (SQLite) + Model Registry with aliases                                         |
 | 🌐 API           | FastAPI + Uvicorn                                                                    |
@@ -182,18 +182,78 @@ curl "http://localhost:8000/predict/component?symbol=NVDA"
 ```bash
 curl "http://localhost:8000/signal/index?universe=qqq"
 ```
-- POST /predict with bars (JSON body):
+- POST /predict with custom bars (requires 21+ bars for warm-up):
 ```bash
+# PowerShell (Windows)
+Invoke-RestMethod -Uri "http://localhost:8000/predict" -Method POST -ContentType "application/json" -Body '{
+  "symbol": "NVDA",
+  "interval": "1h", 
+  "bars": [
+    {"open": 100.0, "high": 101.0, "low": 99.5, "close": 100.5, "volume": 100000},
+    {"open": 100.5, "high": 102.0, "low": 100.0, "close": 101.5, "volume": 120000},
+    {"open": 101.5, "high": 103.0, "low": 101.0, "close": 102.5, "volume": 150000},
+    {"open": 102.5, "high": 104.0, "low": 102.0, "close": 103.5, "volume": 180000},
+    {"open": 103.5, "high": 105.0, "low": 103.0, "close": 104.5, "volume": 200000},
+    {"open": 104.5, "high": 106.0, "low": 104.0, "close": 105.5, "volume": 220000},
+    {"open": 105.5, "high": 107.0, "low": 105.0, "close": 106.5, "volume": 250000},
+    {"open": 106.5, "high": 108.0, "low": 106.0, "close": 107.5, "volume": 280000},
+    {"open": 107.5, "high": 109.0, "low": 107.0, "close": 108.5, "volume": 300000},
+    {"open": 108.5, "high": 110.0, "low": 108.0, "close": 109.5, "volume": 320000},
+    {"open": 109.5, "high": 111.0, "low": 109.0, "close": 110.5, "volume": 350000},
+    {"open": 110.5, "high": 112.0, "low": 110.0, "close": 111.5, "volume": 380000},
+    {"open": 111.5, "high": 113.0, "low": 111.0, "close": 112.5, "volume": 400000},
+    {"open": 112.5, "high": 114.0, "low": 112.0, "close": 113.5, "volume": 420000},
+    {"open": 113.5, "high": 115.0, "low": 113.0, "close": 114.5, "volume": 450000},
+    {"open": 114.5, "high": 116.0, "low": 114.0, "close": 115.5, "volume": 480000},
+    {"open": 115.5, "high": 117.0, "low": 115.0, "close": 116.5, "volume": 500000},
+    {"open": 116.5, "high": 118.0, "low": 116.0, "close": 117.5, "volume": 520000},
+    {"open": 117.5, "high": 119.0, "low": 117.0, "close": 118.5, "volume": 550000},
+    {"open": 118.5, "high": 120.0, "low": 118.0, "close": 119.5, "volume": 580000},
+    {"open": 119.5, "high": 121.0, "low": 119.0, "close": 120.5, "volume": 600000},
+    {"open": 120.5, "high": 122.0, "low": 120.0, "close": 121.5, "volume": 620000},
+    {"open": 121.5, "high": 123.0, "low": 121.0, "close": 122.5, "volume": 650000},
+    {"open": 122.5, "high": 124.0, "low": 122.0, "close": 123.5, "volume": 680000},
+    {"open": 123.5, "high": 125.0, "low": 123.0, "close": 124.5, "volume": 700000}
+  ]
+}'
+
+# Bash/Linux/macOS
 curl -X POST http://localhost:8000/predict \
   -H "Content-Type: application/json" \
   -d '{
-        "symbol": "NVDA",
-        "interval": "1h",
-        "bars": [
-          {"open": 101.2, "high": 102.1, "low": 100.5, "close": 101.7, "volume": 123456}
-        ]
-      }'
+    "symbol": "NVDA",
+    "interval": "1h",
+    "bars": [
+      {"open": 100.0, "high": 101.0, "low": 99.5, "close": 100.5, "volume": 100000},
+      {"open": 100.5, "high": 102.0, "low": 100.0, "close": 101.5, "volume": 120000},
+      {"open": 101.5, "high": 103.0, "low": 101.0, "close": 102.5, "volume": 150000},
+      {"open": 102.5, "high": 104.0, "low": 102.0, "close": 103.5, "volume": 180000},
+      {"open": 103.5, "high": 105.0, "low": 103.0, "close": 104.5, "volume": 200000},
+      {"open": 104.5, "high": 106.0, "low": 104.0, "close": 105.5, "volume": 220000},
+      {"open": 105.5, "high": 107.0, "low": 105.0, "close": 106.5, "volume": 250000},
+      {"open": 106.5, "high": 108.0, "low": 106.0, "close": 107.5, "volume": 280000},
+      {"open": 107.5, "high": 109.0, "low": 107.0, "close": 108.5, "volume": 300000},
+      {"open": 108.5, "high": 110.0, "low": 108.0, "close": 109.5, "volume": 320000},
+      {"open": 109.5, "high": 111.0, "low": 109.0, "close": 110.5, "volume": 350000},
+      {"open": 110.5, "high": 112.0, "low": 110.0, "close": 111.5, "volume": 380000},
+      {"open": 111.5, "high": 113.0, "low": 111.0, "close": 112.5, "volume": 400000},
+      {"open": 112.5, "high": 114.0, "low": 112.0, "close": 113.5, "volume": 420000},
+      {"open": 113.5, "high": 115.0, "low": 113.0, "close": 114.5, "volume": 450000},
+      {"open": 114.5, "high": 116.0, "low": 114.0, "close": 115.5, "volume": 480000},
+      {"open": 115.5, "high": 117.0, "low": 115.0, "close": 116.5, "volume": 500000},
+      {"open": 116.5, "high": 118.0, "low": 116.0, "close": 117.5, "volume": 520000},
+      {"open": 117.5, "high": 119.0, "low": 117.0, "close": 118.5, "volume": 550000},
+      {"open": 118.5, "high": 120.0, "low": 118.0, "close": 119.5, "volume": 580000},
+      {"open": 119.5, "high": 121.0, "low": 119.0, "close": 120.5, "volume": 600000},
+      {"open": 120.5, "high": 122.0, "low": 120.0, "close": 121.5, "volume": 620000},
+      {"open": 121.5, "high": 123.0, "low": 121.0, "close": 122.5, "volume": 650000},
+      {"open": 122.5, "high": 124.0, "low": 122.0, "close": 123.5, "volume": 680000},
+      {"open": 123.5, "high": 125.0, "low": 123.0, "close": 124.5, "volume": 700000}
+    ]
+  }'
 ```
+
+**Note**: The POST endpoint requires at least 21 bars of historical data due to rolling window calculations (20-period warm-up + 1 current bar). For daily use, prefer the GET endpoints which use stored CSV data.
 Response includes `action` in {"strong_sell","sell","hold","buy","strong_buy"} and per‑class probabilities.
 
 8) Run tests

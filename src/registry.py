@@ -12,20 +12,32 @@ MODEL_NAME = "market-master-component-classifier"
 def promote(alias_from: str = "Staging", alias_to: str = "Production") -> None:
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     client = MlflowClient()
-    src = client.get_model_version_by_alias(MODEL_NAME, alias_from)
-    if not src or not getattr(src, "version", None):
+    # Get the latest version with the source alias
+    versions = client.search_model_versions(f"name='{MODEL_NAME}'")
+    src_version = None
+    for v in versions:
+        if hasattr(v, 'aliases') and alias_from in v.aliases:
+            src_version = v.version
+            break
+    
+    if not src_version:
         raise RuntimeError(f"No version tagged {alias_from}")
-    client.set_registered_model_alias(MODEL_NAME, alias_to, int(src.version))
-    print(f"promoted: {MODEL_NAME} v{src.version} -> {alias_to}")
+    
+    # Set the target alias
+    client.set_registered_model_alias(MODEL_NAME, alias_to, int(src_version))
+    print(f"promoted: {MODEL_NAME} v{src_version} -> {alias_to}")
 
 
 def rollback(target_version: Optional[int] = None) -> None:
     mlflow.set_tracking_uri("sqlite:///mlflow.db")
     client = MlflowClient()
-    current = client.get_model_version_by_alias(MODEL_NAME, "Production")
-    current_ver = (
-        int(current.version) if current and getattr(current, "version", None) else None
-    )
+    # Get current production version
+    versions = client.search_model_versions(f"name='{MODEL_NAME}'")
+    current_ver = None
+    for v in versions:
+        if hasattr(v, 'aliases') and 'Production' in v.aliases:
+            current_ver = int(v.version)
+            break
     versions = sorted(
         [int(v.version) for v in client.search_model_versions(f"name='{MODEL_NAME}'")],
         reverse=True,
