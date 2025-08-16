@@ -166,6 +166,14 @@ docker-compose up -d
 
 **💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
 
+### 📸 Execution Outputs
+For reference, here are screenshots of the system in action:
+
+- **[MLflow Experiments Dashboard](docs/mlflow_experiments.png)** - Experiment tracking and model comparison
+- **[MLflow Model Registry](docs/mlflow_models.png)** - Model versioning and promotion workflow
+- **[Model Serving API](docs/model-serving-api.png)** - REST API for predictions
+- **[Prefect Dashboard](docs/prefect_dashboard.png)** - Workflow orchestration and monitoring
+
 
 ## 🛠️ Available Commands
 
