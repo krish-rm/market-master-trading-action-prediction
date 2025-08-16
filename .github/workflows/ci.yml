@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     
     - name: Set up Python 3.10
       uses: actions/setup-python@v4
@@ -19,7 +19,7 @@ jobs:
         python-version: '3.10'
     
     - name: Cache pip dependencies
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -70,7 +70,7 @@ jobs:
         python -m src.run_pipeline --interval 1h --days 7 --max-symbols 2 || echo "Pipeline test completed (may fail due to data availability)"
     
     - name: Upload test results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results
