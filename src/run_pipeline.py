@@ -100,16 +100,13 @@ def main() -> None:
         client = MlflowClient()
         name = "market-master-component-classifier"
         # Get version currently tagged Staging
-        versions = client.search_model_versions(f"name='{name}'")
-        staging_version = None
-        for v in versions:
-            if hasattr(v, 'aliases') and 'Staging' in v.aliases:
-                staging_version = v.version
-                break
-        
-        if staging_version:
-            client.set_registered_model_alias(name, "Production", int(staging_version))
+        try:
+            staging_version_obj = client.get_model_version_by_alias(name, "Staging")
+            staging_version = int(staging_version_obj.version)
+            client.set_registered_model_alias(name, "Production", staging_version)
             print(f"[registry] Promoted version {staging_version} to Production")
+        except Exception as e:
+            print(f"[registry] No Staging version found to promote: {e}")
     except Exception as e:
         print(f"[registry] Skipped promotion: {e}")
 
