@@ -71,7 +71,7 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 ---
 
 ## 🚆 Execution Flow (Local)
-1) **Fetch**: QQQ weights → 1‑hour OHLCV per constituent to `data/components/`.
+1) **Fetch**: QQQ index weights → fetch 1‑hour OHLCV data for top QQQ constituents (AAPL, MSFT, NVDA, AMZN, GOOGL, META, etc.) to `data/components/`.
 2) **Features/labels**: rolling indicators and dynamic thresholds; persist metadata.
 3) **Train/compare**: candidates on pooled dataset; select champion; log to MLflow and register as Staging.
 4) **Predict index**: per‑symbol actions → WSS → /NQ signal; log table/WSS to MLflow.
