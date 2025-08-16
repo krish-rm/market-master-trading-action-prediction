@@ -1,0 +1,39 @@
+# Coverage reports
+htmlcov/
+.coverage
+.pytest_cache/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+.env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# MLflow artifacts (optional - uncomment if you don't want to track)
+# mlruns/
+# artifacts/
+# data/
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
