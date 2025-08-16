@@ -99,6 +99,10 @@ model-serving-test:
 model-serving-simple:
 	echo "Model serving test completed. Use 'make model-serving-test' for full API testing."
 
+# Streamlit Dashboard
+streamlit-dashboard:
+	streamlit run dashboard/streamlit_app.py --server.port 8501 --server.address localhost
+
 # Docker (optional)
 docker-build:
 	docker build -t market-master-api .

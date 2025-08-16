@@ -175,6 +175,25 @@ For reference, here are screenshots of the system in action:
 - **[Model Serving API](docs/model-serving-api.png)** - REST API for predictions
 - **[Prefect Dashboard](docs/prefect_dashboard.png)** - Workflow orchestration and monitoring
 
+### 🎯 Interactive Dashboard
+Launch the real-time trading dashboard with:
+```bash
+make streamlit-dashboard
+```
+
+**Features:**
+- 📈 Real-time stock prices for QQQ constituents
+- 🤖 ML-powered individual stock predictions
+- 📊 Weighted sentiment score calculation
+- 🎯 Futures trading signals (/NQ)
+- 📊 Technical analysis and risk metrics
+- 🔄 Auto-refresh every 30 seconds
+
+**Location**: `dashboard/streamlit_app.py`
+**Access**: http://localhost:8501
+
+See [dashboard/README.md](dashboard/README.md) for detailed documentation.
+
 
 ## 🛠️ Available Commands
 
@@ -189,6 +208,7 @@ For reference, here are screenshots of the system in action:
 | `make mlflow-ui` | Start MLflow experiment tracking | Monitor experiments |
 | `make model-serving` | Start model serving API | Serve predictions |
 | `make model-serving-test` | Test model serving endpoints | Validate API |
+| `make streamlit-dashboard` | Start interactive dashboard | Real-time monitoring |
 | `make prefect-start` | Start Prefect server | Advanced orchestration |
 | `make prefect-worker` | Start Prefect worker | Advanced orchestration |
 | `make prefect-deploy` | Deploy scheduled flows | Advanced orchestration |
@@ -353,6 +373,9 @@ pytest tests/integration/ -q
 │   └── api.py                       # FastAPI serving (registry‑first model load)
 ├── flows/
 │   └── enhanced_orchestration.py    # Prefect flow definition
+├── dashboard/                       # Interactive dashboard
+│   ├── streamlit_app.py             # Streamlit trading dashboard
+│   └── README.md                    # Dashboard documentation
 └── tests/
     ├── unit/                        # Unit tests
     │   ├── test_features.py         # Feature engineering tests

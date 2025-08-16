@@ -29,4 +29,6 @@ pytest-cov==5.0.0
 
 # Additional dependencies for enhanced functionality
 python-multipart==0.0.20
+streamlit==1.32.0
+plotly==5.19.0
 
