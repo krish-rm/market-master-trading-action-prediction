@@ -419,4 +419,26 @@ Environment variables are optional. Defaults are embedded for local use.
 - Cloud deployment (AWS/GCP) with managed MLflow and monitoring services.
 - Real-time data streaming integration for live trading signals.
 
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+
+## 🙏 Acknowledgments
+
+- MLOps Zoomcamp for the foundational knowledge
+- The financial community for domain expertise
+
+---
+
+**Ready to experience the power of Market Master in financial prediction? Deploy and monitor your models with confidence! ** 
 
