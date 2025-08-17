@@ -24,7 +24,18 @@ WEIGHTS_DEFAULT = Path("data/weights/qqq_weights.csv")
 app = FastAPI(title="Market Master Index API", version="1.0")
 
 
+# Global variables for lazy loading
+MODEL = None
+META = None
+FEATURE_COLS = None
+FPARAMS = None
+LPARAMS = None
+
+
 def _load_model_and_meta():
+    """Load model and metadata with proper error handling"""
+    global MODEL, META, FEATURE_COLS, FPARAMS, LPARAMS
+    
     # Try to load from MLflow Model Registry alias first, fallback to local artifacts
     try:
         mlflow.set_tracking_uri("sqlite:///mlflow.db")
@@ -32,34 +43,53 @@ def _load_model_and_meta():
         model = mlflow.sklearn.load_model(uri)
         meta = json.loads(META_PATH.read_text(encoding="utf-8"))
         return model, meta
-    except Exception:
-        if not MODEL_PATH.exists() or not META_PATH.exists():
-            raise RuntimeError("Model artifacts not found. Train pooled model first.")
-        model = joblib.load(MODEL_PATH)
-        meta = json.loads(META_PATH.read_text(encoding="utf-8"))
-        return model, meta
+    except Exception as e:
+        # Try local artifacts as fallback
+        if MODEL_PATH.exists() and META_PATH.exists():
+            try:
+                model = joblib.load(MODEL_PATH)
+                meta = json.loads(META_PATH.read_text(encoding="utf-8"))
+                return model, meta
+            except Exception as local_e:
+                raise RuntimeError(f"Failed to load local model: {local_e}")
+        else:
+            raise RuntimeError(f"Model artifacts not found. Train pooled model first. Error: {e}")
 
 
-MODEL, META = _load_model_and_meta()
-FEATURE_COLS: List[str] = META["feature_columns"]
-FPARAMS = FeatureParams(**META.get("feature_params", {}))
-LPARAMS = LabelParams(**META.get("label_params", {}))
+def _ensure_model_loaded():
+    """Ensure model is loaded, load if not already loaded"""
+    global MODEL, META, FEATURE_COLS, FPARAMS, LPARAMS
+    
+    if MODEL is None or META is None:
+        MODEL, META = _load_model_and_meta()
+        FEATURE_COLS = META["feature_columns"]
+        FPARAMS = FeatureParams(**META.get("feature_params", {}))
+        LPARAMS = LabelParams(**META.get("label_params", {}))
 
 
 @app.get("/health")
 def health() -> Dict[str, Any]:
-    return {
-        "status": "ok",
-        "model_source": (
-            f"registry:{REGISTRY_MODEL_NAME}@{REGISTRY_ALIAS}"
-            if MODEL
-            else str(MODEL_PATH)
-        ),
-        "feature_columns": FEATURE_COLS,
-    }
+    try:
+        _ensure_model_loaded()
+        return {
+            "status": "ok",
+            "model_loaded": True,
+            "model_source": f"registry:{REGISTRY_MODEL_NAME}@{REGISTRY_ALIAS}",
+            "feature_columns": FEATURE_COLS,
+        }
+    except Exception as e:
+        return {
+            "status": "model_not_ready",
+            "model_loaded": False,
+            "message": f"Model not available: {str(e)}",
+            "model_source": str(MODEL_PATH),
+        }
 
 
 def _predict_component(symbol: str, interval: str = "1h") -> Dict[str, Any]:
+    # Ensure model is loaded
+    _ensure_model_loaded()
+    
     csv_path = COMPONENTS_DIR / f"{symbol.upper()}_{interval}.csv"
     if not csv_path.exists():
         raise HTTPException(
@@ -187,6 +217,9 @@ class PredictRequest(BaseModel):
 @app.post("/predict")
 def predict(req: PredictRequest) -> Dict[str, Any]:
     try:
+        # Ensure model is loaded
+        _ensure_model_loaded()
+        
         # Convert bars to DataFrame
         rows = [b.dict() for b in req.bars]
         raw = pd.DataFrame(rows)

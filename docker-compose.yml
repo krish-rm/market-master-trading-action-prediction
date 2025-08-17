@@ -1,6 +1,48 @@
 version: '3.8'
 
 services:
+  # PostgreSQL Database for MLflow backend
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: mlflow
+      POSTGRES_USER: mlflow
+      POSTGRES_PASSWORD: mlflow_password
+      POSTGRES_HOST_AUTH_METHOD: trust
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mlflow -d mlflow"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+
+  # MLflow Tracking Server
+  mlflow:
+    image: python:3.10-slim
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/app/mlruns
+      - ./artifacts:/app/artifacts
+    working_dir: /app
+    environment:
+      - MLFLOW_TRACKING_URI=postgresql://mlflow:mlflow_password@postgres:5432/mlflow
+      - MLFLOW_DEFAULT_ARTIFACT_ROOT=./mlruns
+    command: >
+      sh -c "pip install mlflow==2.13.0 psycopg2-binary &&
+             mlflow server --backend-store-uri postgresql://mlflow:mlflow_password@postgres:5432/mlflow 
+                          --default-artifact-root ./mlruns 
+                          --host 0.0.0.0 --port 5000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # FastAPI Model Serving
   api:
     build: .
     ports:
@@ -9,26 +51,68 @@ services:
       - ./data:/app/data
       - ./artifacts:/app/artifacts
       - ./mlruns:/app/mlruns
+      - ./flows:/app/flows
     environment:
-      - MLFLOW_TRACKING_URI=sqlite:///mlflow.db
+      - MLFLOW_TRACKING_URI=postgresql://mlflow:mlflow_password@postgres:5432/mlflow
+      - MODEL_URI=models:/market-master-component-classifier@Production
+      - DATABASE_URL=postgresql://mlflow:mlflow_password@postgres:5432/mlflow
     depends_on:
-      - mlflow
+      postgres:
+        condition: service_healthy
+      mlflow:
+        condition: service_started
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # Streamlit Dashboard
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./data:/app/data
+      - ./artifacts:/app/artifacts
+      - ./mlruns:/app/mlruns
+    environment:
+      - MLFLOW_TRACKING_URI=postgresql://mlflow:mlflow_password@postgres:5432/mlflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_healthy
     restart: unless-stopped
 
-  mlflow:
-    image: python:3.10-slim
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./mlruns:/app/mlruns
-      - ./mlflow.db:/app/mlflow.db
-    working_dir: /app
-    command: >
-      sh -c "pip install mlflow==2.13.0 &&
-             mlflow ui --backend-store-uri sqlite:///mlflow.db 
-                      --default-artifact-root ./mlruns 
-                      --host 0.0.0.0 --port 5000"
-    restart: unless-stopped
+  # Prefect Server (Optional - for advanced orchestration)
+  # Note: Prefect flows are run from within the API container to avoid dependency conflicts
+  # prefect:
+  #   image: python:3.10-slim
+  #   ports:
+  #     - "4200:4200"
+  #   volumes:
+  #     - ./flows:/app/flows
+  #     - ./data:/app/data
+  #     - ./artifacts:/app/artifacts
+  #   working_dir: /app
+  #   environment:
+  #     - PREFECT_API_URL=http://127.0.0.1:4200/api
+  #     - MLFLOW_TRACKING_URI=postgresql://mlflow:mlflow_password@postgres:5432/mlflow
+  #   command: >
+  #     sh -c "pip install prefect==3.4.13 mlflow==3.2.0 psycopg2-binary griffe==1.12.1 &&
+  #            prefect server start --host 0.0.0.0 --port 4200"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #   restart: unless-stopped
+
+volumes:
+  postgres_data:
 
 networks:
   default:

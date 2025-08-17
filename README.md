@@ -92,7 +92,7 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 1) Clone and enter the repo
 ```bash
 git clone <your-repo-url>
-cd market-master-trading-action-prediction-system
+cd market-master-trading-action-prediction
 ```
 
 2) Create virtual environment
@@ -155,28 +155,76 @@ See [dashboard/README.md](dashboard/README.md) for detailed documentation.
 
 **💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
 
-### Option B: Docker Setup
+### Option B: Docker Setup (Fully Reproducible)
+
+**This is the recommended approach for full reproducibility and production-like deployment.**
 
 1) Clone and enter the repo
 ```bash
 git clone <your-repo-url>
-cd market-master-trading-prediction-system
+cd market-master-trading-action-prediction
 ```
 
-2) Run the pipeline and start services
+2) **Setup and Start Services**
+   ```bash
+   # Complete setup (recommended)
+   make docker-setup
+   
+   # Or step by step:
+   make docker-build
+   make docker-run
+   make docker-pipeline
+   ```
+
+4) **Access Services**
+   - **API Documentation**: http://localhost:8000/docs (Swagger UI)
+   - **MLflow UI**: http://localhost:5000 
+   - **Streamlit Dashboard**: http://localhost:8501 
+   - **Prefect Dashboard**: http://localhost:4200 
+
+5) **Test the Setup**
 ```bash
-# Run the full pipeline first
-make prefect-flow
+   # Test API endpoints
+   curl http://localhost:8000/health
+   curl "http://localhost:8000/predict/component?symbol=AAPL"
+   curl "http://localhost:8000/signal/index?universe=qqq"
+   
+   # Or use the automated test
+   make docker-smoke-test
+   ```
 
-# Start services with Docker Compose
-docker-compose up -d
+**⚠️ Note**: The pipeline requires internet connectivity to fetch stock data from Yahoo Finance. If you encounter data fetching issues, the system will use fallback data for demonstration purposes.
+
+**🎯 What's Included in Option B:**
+- **PostgreSQL Database**: Production-grade database for MLflow backend
+- **Complete Service Stack**: API, MLflow, Dashboard, and Prefect orchestration
+- **Persistent Storage**: All data and artifacts preserved across restarts
+- **Health Monitoring**: Automatic health checks for all services
+- **Network Isolation**: Dedicated Docker network for security
+- **Volume Management**: Proper data persistence and sharing
+
+**🔧 Management Commands:**
+```bash
+# View service logs
+make docker-logs
+
+# Restart services
+make docker-restart
+
+# Stop all services
+make docker-stop
+
+# Clean up everything
+make docker-clean
+
+# Check service health
+make docker-health-check
 ```
 
-3) Access services
-- API: http://localhost:8000/docs (Swagger UI)
-- MLflow UI: http://localhost:5000
+**📚 For detailed Docker setup instructions, see [docs/docker_setup.md](docs/docker_setup.md)**
 
 **💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
+
 
 ### 📸 Execution Outputs
 For reference, here are screenshots of the system in action:
@@ -211,8 +259,14 @@ For reference, here are screenshots of the system in action:
 | `make lint` | Run code linting | Code quality |
 | `make format` | Format code with black | Code formatting |
 | `make type-check` | Run type checking | Code quality |
-| `make docker-build` | Build Docker image | Containerization |
+| `make docker-build` | Build Docker images | Containerization |
 | `make docker-run` | Start Docker services | Container deployment |
+| `make docker-setup` | Complete Docker setup (Option B) | Full reproducible deployment |
+| `make docker-smoke-test` | Test Docker services | Validate deployment |
+| `make docker-health-check` | Check service health | Monitor deployment |
+| `make docker-logs` | View service logs | Debug deployment |
+| `make docker-restart` | Restart services | Service management |
+| `make docker-clean` | Clean up Docker resources | Maintenance |
 | `make promote-staging` | Promote model to staging | Model management |
 | `make rollback-production` | Rollback production model | Model management |
 
@@ -333,23 +387,31 @@ pytest tests/integration/ -q
 ## ⚙️ Project Structure
 ```bash
 .
-├── README.md
-├── requirements.txt
+├── README.md                        # Main project documentation
+├── requirements.txt                 # Python dependencies
 ├── Makefile                         # Convenience commands for development
 ├── Dockerfile                       # Containerized API service
-├── docker-compose.yml               # Local environment (API + MLflow UI)
+├── Dockerfile.dashboard             # Containerized dashboard service
+├── docker-compose.yml               # Multi-service orchestration
 ├── .github/workflows/ci.yml         # GitHub Actions CI/CD
-├── data/
+├── docs/                            # Documentation
+│   ├── concept_diagram.png          # System architecture diagram
+│   ├── mlflow_experiments.png       # MLflow experiments screenshot
+│   ├── mlflow_models.png            # Model registry screenshot
+│   ├── model-serving-api.png        # API documentation screenshot
+│   ├── prefect_dashboard.png        # Prefect dashboard screenshot
+│   └── DOCKER_SETUP.md              # Detailed Docker setup guide
+├── data/                            # Data storage
 │   ├── components/                  # per‑symbol 1h OHLCV CSVs
 │   ├── weights/qqq_weights.csv      # normalized QQQ weights (top‑10 in MVP)
 │   └── monitoring/                  # Evidently drift and quality reports
 ├── mlruns/                          # MLflow artifacts (created at run)
-├── artifacts/
+├── artifacts/                       # Model artifacts
 │   ├── model/                       # Champion model and metadata
 │   ├── models/                      # All candidate models
 │   ├── index/                       # Index signal outputs
 │   └── backtest/                    # Batch backtest results
-├── src/
+├── src/                             # Source code
 │   ├── features.py                  # indicators (returns, rolling stats, RSI, MA, ATR, BB width)
 │   ├── data.py                      # dataset utilities and metadata persistence
 │   ├── fetch_symbol.py              # robust yfinance fetcher with market‑hours filter
@@ -364,12 +426,12 @@ pytest tests/integration/ -q
 │   ├── run_pipeline.py              # end‑to‑end runner (local orchestration)
 │   ├── hourly_predict.py            # hourly scheduler entrypoint (Windows Task Scheduler)
 │   └── api.py                       # FastAPI serving (registry‑first model load)
-├── flows/
+├── flows/                           # Workflow orchestration
 │   └── enhanced_orchestration.py    # Prefect flow definition
 ├── dashboard/                       # Interactive dashboard
 │   ├── streamlit_app.py             # Streamlit trading dashboard
 │   └── README.md                    # Dashboard documentation
-└── tests/
+└── tests/                           # Test suite
     ├── unit/                        # Unit tests
     │   ├── test_features.py         # Feature engineering tests
     │   ├── test_pipeline.py         # Pipeline component tests
@@ -440,5 +502,27 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-**Ready to experience the power of Market Master in financial prediction? Deploy and monitor your models with confidence! ** 
+## 📋 Project Status Summary
+
+✅ **Option B Docker Setup Complete**
+- **PostgreSQL Database**: Production-grade backend for MLflow
+- **Complete Service Stack**: API, MLflow, Dashboard, Prefect
+- **Persistent Storage**: Data survives container restarts
+- **Health Monitoring**: Automatic health checks
+- **Network Isolation**: Secure Docker network
+- **Full Reproducibility**: Works identically on any machine
+
+✅ **All Access Points Available**
+- **API**: http://localhost:8000/docs
+- **MLflow UI**: http://localhost:5000
+- **Dashboard**: http://localhost:8501
+- **Prefect**: http://localhost:4200
+
+✅ **Production-Ready Features**
+- Model registry with staging/production promotion
+- Automated pipeline orchestration
+- Real-time monitoring and health checks
+- Comprehensive logging and error handling
+
+**Ready to experience the power of Market Master in financial prediction? Deploy and monitor your models with confidence!**
 

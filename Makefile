@@ -112,15 +112,64 @@ model-serving-simple:
 streamlit-dashboard:
 	streamlit run dashboard/streamlit_app.py --server.port 8501 --server.address localhost
 
-# Docker (optional)
+# Docker (Option B - Full Reproducible Setup)
 docker-build:
 	docker build -t market-master-api .
+	docker build -f Dockerfile.dashboard -t market-master-dashboard .
 
 docker-run:
 	docker-compose up -d
 
 docker-stop:
 	docker-compose down
+
+docker-logs:
+	docker-compose logs -f
+
+docker-restart:
+	docker-compose restart
+
+docker-clean:
+	docker-compose down -v
+	docker system prune -f
+
+docker-setup:
+	@echo "Setting up Docker environment..."
+	@echo "1. Building Docker images..."
+	make docker-build
+	@echo "2. Starting services..."
+	make docker-run
+	@echo "3. Running pipeline..."
+	make docker-pipeline
+	@echo "Docker setup complete! Access services at:"
+	@echo "- API: http://localhost:8000/docs"
+	@echo "- MLflow UI: http://localhost:5000"
+	@echo "- Dashboard: http://localhost:8501"
+	@echo "- Prefect: http://localhost:4200"
+
+docker-pipeline:
+	@echo "Running Prefect-orchestrated ML pipeline in Docker..."
+	@echo "This will train the model and register it in MLflow..."
+	docker-compose exec -T api python flows/enhanced_orchestration.py
+	@echo "Pipeline completed. Model should now be available in MLflow registry."
+
+docker-smoke-test:
+	docker-compose exec -T api python flows/enhanced_orchestration.py
+	@echo "Testing API endpoints..."
+	curl -f http://localhost:8000/health
+	curl -f "http://localhost:8000/predict/component?symbol=AAPL"
+	@echo "Smoke test completed successfully!"
+
+docker-health-check:
+	@echo "Checking service health..."
+	@echo "API Health:"
+	curl -f http://localhost:8000/health || echo "API not ready"
+	@echo "MLflow Health:"
+	curl -f http://localhost:5000 || echo "MLflow not ready"
+	@echo "Dashboard Health:"
+	curl -f http://localhost:8501/_stcore/health || echo "Dashboard not ready"
+	@echo "Prefect Health:"
+	curl -f http://localhost:4200/api/health || echo "Prefect not ready"
 
 # MLflow UI
 mlflow-ui:
