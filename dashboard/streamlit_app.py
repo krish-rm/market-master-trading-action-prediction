@@ -39,16 +39,51 @@ st.markdown("""
         padding: 1rem;
         border-radius: 0.5rem;
         border-left: 4px solid #1f77b4;
+        color: #333333;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .metric-card h4 {
+        color: #1f77b4;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    .metric-card h3 {
+        color: #333333;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    .metric-card p {
+        color: #333333;
+        margin-bottom: 0.25rem;
+        font-weight: 500;
+    }
+    .metric-card small {
+        color: #666666;
     }
     .prediction-card {
         background-color: #f8f9fa;
         padding: 1rem;
         border-radius: 0.5rem;
         margin: 0.5rem 0;
+        color: #333333;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     }
-    .positive { color: #28a745; }
-    .negative { color: #dc3545; }
-    .neutral { color: #6c757d; }
+    .prediction-card h4 {
+        color: #1f77b4;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    .prediction-card h3 {
+        color: #333333;
+        margin-bottom: 0.5rem;
+        font-weight: bold;
+    }
+    .prediction-card small {
+        color: #666666;
+    }
+    .positive { color: #28a745 !important; font-weight: bold; }
+    .negative { color: #dc3545 !important; font-weight: bold; }
+    .neutral { color: #6c757d !important; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -87,14 +122,42 @@ def simulate_predictions(symbols, stock_data):
 
 @st.cache_data(ttl=60)  # Cache for 1 minute
 def get_stock_data(symbol, period="1d", interval="1h"):
-    """Get stock data from Yahoo Finance"""
+    """Get stock data from Yahoo Finance with fallback"""
     try:
         ticker = yf.Ticker(symbol)
         data = ticker.history(period=period, interval=interval)
+        
+        if data is None or data.empty:
+            raise Exception("No data returned from Yahoo Finance")
+            
         return data
     except Exception as e:
-        st.error(f"Error fetching data for {symbol}: {e}")
-        return None
+        st.warning(f"⚠️ Could not fetch live data for {symbol}: {str(e)}")
+        st.info(f"Using simulated data for {symbol}")
+        
+        # Generate fallback data
+        now = datetime.now()
+        dates = pd.date_range(end=now, periods=24, freq='h')
+        
+        # Simulate realistic price data
+        base_price = 100 + hash(symbol) % 200  # Different base price per symbol
+        prices = []
+        for i in range(24):
+            # Add some random variation
+            variation = np.random.normal(0, 0.02)  # 2% standard deviation
+            price = base_price * (1 + variation)
+            prices.append(max(price, 1))  # Ensure price doesn't go negative
+        
+        # Create OHLC data
+        data = pd.DataFrame({
+            'Open': prices,
+            'High': [p * (1 + abs(np.random.normal(0, 0.01))) for p in prices],
+            'Low': [p * (1 - abs(np.random.normal(0, 0.01))) for p in prices],
+            'Close': prices,
+            'Volume': [np.random.randint(100000, 1000000) for _ in prices]
+        }, index=dates)
+        
+        return data
 
 def calculate_prediction_color(prediction):
     """Get color based on prediction"""
@@ -116,6 +179,66 @@ def get_prediction_emoji(prediction):
     }
     return emoji_map.get(prediction, '❓')
 
+def get_real_predictions():
+    """Get real ML model predictions from artifacts"""
+    try:
+        wss_file = Path("artifacts/index/wss_summary.json")
+        if wss_file.exists():
+            with open(wss_file, 'r') as f:
+                data = json.load(f)
+            return data
+        else:
+            return None
+    except Exception as e:
+        st.warning(f"Could not load real predictions: {e}")
+        return None
+
+def get_per_symbol_predictions():
+    """Get per-symbol predictions from artifacts"""
+    try:
+        preds_file = Path("artifacts/index/per_symbol_predictions.json")
+        if preds_file.exists():
+            with open(preds_file, 'r') as f:
+                data = json.load(f)
+            return data
+        else:
+            return None
+    except Exception as e:
+        st.warning(f"Could not load per-symbol predictions: {e}")
+        return None
+
+def get_latest_collected_data():
+    """Get the latest collected historical data for predictions"""
+    try:
+        # Check if we have collected data
+        components_dir = Path("data/components")
+        if not components_dir.exists():
+            return None
+            
+        # Get the most recent data files
+        data_files = list(components_dir.glob("*_1h.csv"))
+        if not data_files:
+            return None
+            
+        # Get the latest timestamp from any file
+        latest_data = {}
+        for file_path in data_files:
+            symbol = file_path.stem.replace("_1h", "")
+            df = pd.read_csv(file_path, parse_dates=["timestamp"])
+            if not df.empty:
+                latest_data[symbol] = {
+                    'price': df.iloc[-1]['close'],
+                    'change': df.iloc[-1]['close'] - df.iloc[-2]['close'] if len(df) > 1 else 0,
+                    'change_pct': ((df.iloc[-1]['close'] - df.iloc[-2]['close']) / df.iloc[-2]['close'] * 100) if len(df) > 1 else 0,
+                    'volume': df.iloc[-1]['volume'],
+                    'timestamp': df.iloc[-1]['timestamp']
+                }
+        
+        return latest_data
+    except Exception as e:
+        st.warning(f"Could not load collected data: {e}")
+        return None
+
 def main():
     # Header
     st.markdown('<h1 class="main-header">📈 Market Master Trading Dashboard</h1>', unsafe_allow_html=True)
@@ -124,11 +247,14 @@ def main():
     st.sidebar.title("Dashboard Controls")
     
     # Auto-refresh toggle
-    auto_refresh = st.sidebar.checkbox("Auto-refresh (30s)", value=True)
+    auto_refresh = st.sidebar.checkbox("Auto-refresh (30s)", value=False)
     
     # Manual refresh button
     if st.sidebar.button("🔄 Refresh Data"):
         st.rerun()
+    
+    # Theme toggle
+    theme = st.sidebar.selectbox("Theme", ["Light", "Dark"], index=0)
     
     st.sidebar.markdown("---")
     st.sidebar.markdown("### About")
@@ -140,6 +266,8 @@ def main():
     - Individual stock predictions
     - Weighted sentiment score
     - Futures trading signals
+    
+    **Note:** If live data is unavailable, the dashboard uses simulated data for demonstration purposes.
     """)
     
     # Main content
@@ -167,9 +295,14 @@ def main():
             with tab1:
                 st.markdown("### Real-time Stock Prices")
                 
-                # Create price cards
-                price_cols = st.columns(3)
-                stock_data = {}
+                # Data source indicator
+                st.info("📊 **Data Source:** Live data from Yahoo Finance API (with fallback to simulated data if API is unavailable)")
+                
+                # Loading indicator
+                with st.spinner("Loading stock data..."):
+                    # Create price cards
+                    price_cols = st.columns(3)
+                    stock_data = {}
                 
                 for i, symbol in enumerate(symbols):
                     col_idx = i % 3
@@ -229,30 +362,115 @@ def main():
             with tab2:
                 st.markdown("### ML Predictions")
                 
-                # Simulate predictions (in real app, this would call your ML model)
-                predictions = simulate_predictions(symbols, stock_data)
+                # Get real ML model predictions and collected data
+                real_predictions = get_real_predictions()
+                per_symbol_preds = get_per_symbol_predictions()
+                collected_data = get_latest_collected_data()
                 
-                # Display predictions
-                pred_cols = st.columns(3)
-                for i, symbol in enumerate(symbols):
-                    col_idx = i % 3
-                    with pred_cols[col_idx]:
-                        if symbol in predictions:
-                            pred = predictions[symbol]
-                            color_class = calculate_prediction_color(pred)
-                            emoji = get_prediction_emoji(pred)
+                if real_predictions and per_symbol_preds:
+                    st.success("✅ **Using Real ML Model Predictions**")
+                    
+                    # Show data source info
+                    if collected_data:
+                        latest_timestamp = max([data['timestamp'] for data in collected_data.values()])
+                        st.info(f"📊 **Predictions based on collected data as of:** {latest_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+                    else:
+                        st.info("📊 **Predictions based on latest collected historical data**")
+                    
+                    # Display real predictions
+                    pred_cols = st.columns(3)
+                    for i, pred_data in enumerate(per_symbol_preds):
+                        col_idx = i % 3
+                        with pred_cols[col_idx]:
+                            symbol = pred_data['symbol']
+                            action = pred_data['action']
+                            confidence = pred_data['confidence']
+                            color_class = calculate_prediction_color(action)
+                            emoji = get_prediction_emoji(action)
                             
                             st.markdown(f"""
                             <div class="prediction-card">
                                 <h4>{symbol}</h4>
-                                <h3 class="{color_class}">{emoji} {pred.replace('_', ' ').title()}</h3>
-                                <small>ML Model Prediction</small>
+                                <h3 class="{color_class}">{emoji} {action.replace('_', ' ').title()}</h3>
+                                <p>Confidence: {confidence:.1%}</p>
+                                <small>Real ML Model</small>
                             </div>
                             """, unsafe_allow_html=True)
+                    
+                    # Show prediction details
+                    st.markdown("### Prediction Details")
+                    if 'detail' in real_predictions and 'table' in real_predictions['detail']:
+                        pred_df = pd.DataFrame(real_predictions['detail']['table'])
+                        st.dataframe(pred_df, use_container_width=True)
+                else:
+                    st.warning("⚠️ **Real ML predictions not available, using collected data predictions**")
+                    
+                    # Use collected data if available, otherwise fallback to simulated
+                    if collected_data:
+                        st.info("📊 **Using predictions based on collected historical data**")
+                        predictions = simulate_predictions(symbols, collected_data)
+                    else:
+                        st.info("📊 **Using simulated predictions (no collected data available)**")
+                        predictions = simulate_predictions(symbols, stock_data)
+                    
+                    # Display predictions
+                    pred_cols = st.columns(3)
+                    for i, symbol in enumerate(symbols):
+                        col_idx = i % 3
+                        with pred_cols[col_idx]:
+                            if symbol in predictions:
+                                pred = predictions[symbol]
+                                color_class = calculate_prediction_color(pred)
+                                emoji = get_prediction_emoji(pred)
+                                
+                                st.markdown(f"""
+                                <div class="prediction-card">
+                                    <h4>{symbol}</h4>
+                                    <h3 class="{color_class}">{emoji} {pred.replace('_', ' ').title()}</h3>
+                                    <small>Simulated Prediction</small>
+                                </div>
+                                """, unsafe_allow_html=True)
                 
                 # Prediction summary
                 st.markdown("### Prediction Summary")
-                if predictions:
+                
+                if real_predictions:
+                    # Use real WSS data
+                    wss = real_predictions['wss']
+                    signal = real_predictions['signal']
+                    
+                    # Display summary
+                    col1, col2, col3 = st.columns(3)
+                    with col1:
+                        if 'detail' in real_predictions:
+                            st.metric("Total Constituents", real_predictions['detail']['n'])
+                        else:
+                            st.metric("Total Constituents", len(per_symbol_preds) if per_symbol_preds else 0)
+                    with col2:
+                        st.metric("Weighted Sentiment Score", f"{wss:.3f}")
+                    with col3:
+                        if "BUY" in signal:
+                            signal_display = "BULLISH"
+                            color = "positive"
+                        elif "SELL" in signal:
+                            signal_display = "BEARISH"
+                            color = "negative"
+                        else:
+                            signal_display = "NEUTRAL"
+                            color = "neutral"
+                        st.markdown(f'<p class="{color}"><strong>Signal: {signal_display}</strong></p>', unsafe_allow_html=True)
+                    
+                    # Show WSS details
+                    if 'detail' in real_predictions and 'table' in real_predictions['detail']:
+                        st.markdown("### WSS Breakdown")
+                        wss_df = pd.DataFrame(real_predictions['detail']['table'])
+                        wss_df['contrib'] = wss_df['contrib'].apply(lambda x: f"{x:.3f}")
+                        wss_df['weight'] = wss_df['weight'].apply(lambda x: f"{x:.1%}")
+                        wss_df['confidence'] = wss_df['confidence'].apply(lambda x: f"{x:.1%}")
+                        st.dataframe(wss_df[['symbol', 'action', 'confidence', 'weight', 'contrib']], use_container_width=True)
+                
+                elif 'predictions' in locals():
+                    # Fallback to simulated predictions
                     pred_df = pd.DataFrame([
                         {'Symbol': symbol, 'Prediction': pred, 'Weight': holdings[holdings['symbol'] == symbol]['weight'].iloc[0]}
                         for symbol, pred in predictions.items()
@@ -311,8 +529,45 @@ def main():
         # Futures trading signal
         st.markdown("### 📈 Futures Trading Signal")
         
-        if 'wss' in locals():
-            # Calculate signal based on WSS
+        # Get real WSS data and collected data info
+        real_predictions = get_real_predictions()
+        collected_data = get_latest_collected_data()
+        
+        # Show data source for predictions
+        if collected_data:
+            latest_timestamp = max([data['timestamp'] for data in collected_data.values()])
+            st.info(f"📊 **Signal based on data collected as of:** {latest_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
+        else:
+            st.info("📊 **Signal based on latest collected historical data**")
+        
+        if real_predictions:
+            wss = real_predictions['wss']
+            signal = real_predictions['signal']
+            
+            # Determine confidence and styling
+            if "BUY" in signal:
+                confidence = "High"
+                color = "positive"
+                emoji = "🚀"
+            elif "SELL" in signal:
+                confidence = "High"
+                color = "negative"
+                emoji = "📉"
+            else:
+                confidence = "Low"
+                color = "neutral"
+                emoji = "⏸️"
+            
+            st.markdown(f"""
+            <div class="metric-card">
+                <h3>{emoji} {signal}</h3>
+                <p class="{color}">Confidence: {confidence}</p>
+                <p>WSS: {wss:.3f}</p>
+                <small>Real ML Model</small>
+            </div>
+            """, unsafe_allow_html=True)
+        elif 'wss' in locals():
+            # Fallback to calculated WSS
             if wss > 0.5:
                 signal = "LONG /NQ"
                 confidence = "High"
@@ -334,13 +589,30 @@ def main():
                 <h3>{emoji} {signal}</h3>
                 <p class="{color}">Confidence: {confidence}</p>
                 <p>WSS: {wss:.3f}</p>
+                <small>Simulated</small>
             </div>
             """, unsafe_allow_html=True)
         
         # Market sentiment
         st.markdown("### 📊 Market Sentiment")
         
-        if 'predictions' in locals():
+        # Use real predictions if available
+        if per_symbol_preds:
+            sentiment_counts = {}
+            for pred_data in per_symbol_preds:
+                action = pred_data['action']
+                sentiment_counts[action] = sentiment_counts.get(action, 0) + 1
+            
+            # Create sentiment pie chart
+            if sentiment_counts:
+                fig = px.pie(
+                    values=list(sentiment_counts.values()),
+                    names=list(sentiment_counts.keys()),
+                    title="Real ML Model Predictions"
+                )
+                st.plotly_chart(fig, use_container_width=True)
+        elif 'predictions' in locals():
+            # Fallback to simulated predictions
             sentiment_counts = {}
             for pred in predictions.values():
                 sentiment_counts[pred] = sentiment_counts.get(pred, 0) + 1
@@ -350,7 +622,7 @@ def main():
                 fig = px.pie(
                     values=list(sentiment_counts.values()),
                     names=list(sentiment_counts.keys()),
-                    title="Prediction Distribution"
+                    title="Simulated Predictions"
                 )
                 st.plotly_chart(fig, use_container_width=True)
         
@@ -382,7 +654,7 @@ def main():
     st.markdown("""
     <div style='text-align: center; color: #666;'>
         <p>📊 Market Master Trading System | Powered by MLflow & Prefect</p>
-        <p>Data updates every 30 seconds | Predictions based on ML models</p>
+        <p>Predictions based on collected historical data and ML models</p>
     </div>
     """, unsafe_allow_html=True)
     

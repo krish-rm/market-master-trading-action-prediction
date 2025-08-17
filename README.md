@@ -135,12 +135,26 @@ make model-serving
 
 # Start Prefect server (open in new terminal)
 make prefect-start
+
+# Start Streamlit app interactive dashboard (open in new terminal)
+make streamlit-dashboard
 ```
 
 6) Access services
 - API: http://localhost:8001/docs (Swagger UI)
 - MLflow UI: http://localhost:5000
 - Prefect dashboard: http://localhost:4200
+- Streamlit dashboard: http://localhost:8501
+
+**🎯 Interactive Dashboard Features:**
+- 📈 Real-time stock prices for QQQ constituents
+- 🤖 ML-powered individual stock predictions
+- 📊 Weighted sentiment score calculation
+- 🎯 Futures trading signals (/NQ)
+- 📊 Technical analysis and risk metrics
+- 🔄 Auto-refresh every 30 seconds
+
+See [dashboard/README.md](dashboard/README.md) for detailed documentation.
 
 **💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
 
@@ -175,24 +189,7 @@ For reference, here are screenshots of the system in action:
 - **[Model Serving API](docs/model-serving-api.png)** - REST API for predictions
 - **[Prefect Dashboard](docs/prefect_dashboard.png)** - Workflow orchestration and monitoring
 
-### 🎯 Interactive Dashboard
-Launch the real-time trading dashboard with:
-```bash
-make streamlit-dashboard
-```
 
-**Features:**
-- 📈 Real-time stock prices for QQQ constituents
-- 🤖 ML-powered individual stock predictions
-- 📊 Weighted sentiment score calculation
-- 🎯 Futures trading signals (/NQ)
-- 📊 Technical analysis and risk metrics
-- 🔄 Auto-refresh every 30 seconds
-
-**Location**: `dashboard/streamlit_app.py`
-**Access**: http://localhost:8501
-
-See [dashboard/README.md](dashboard/README.md) for detailed documentation.
 
 
 ## 🛠️ Available Commands
