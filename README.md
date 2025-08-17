@@ -118,11 +118,8 @@ pip install -r requirements.txt
 
 4) Run the orchestrated pipeline
 ```bash
-# Run complete orchestrated pipeline (recommended)
+# Run complete orchestrated pipeline
 make prefect-flow
-
-# Alternative: Run non-orchestrated pipeline
-make pipeline
 ```
 
 5) Start monitoring and serving
@@ -197,7 +194,6 @@ For reference, here are screenshots of the system in action:
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
 | `make prefect-flow` | Run complete orchestrated pipeline | **Main command** - Start here |
-| `make pipeline` | Run full pipeline (non-orchestrated) | Alternative to prefect-flow |
 | `make smoke-test` | Quick pipeline + API test | Testing the system |
 | `make clean` | Remove all artifacts and data | Fresh start |
 | `make install` | Install dependencies | First time setup |

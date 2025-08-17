@@ -184,8 +184,15 @@ def get_real_predictions():
     try:
         wss_file = Path("artifacts/index/wss_summary.json")
         if wss_file.exists():
+            # Get file modification time
+            mtime = wss_file.stat().st_mtime
+            last_updated = datetime.fromtimestamp(mtime)
+            
             with open(wss_file, 'r') as f:
                 data = json.load(f)
+            
+            # Add last updated timestamp to the data
+            data['last_updated'] = last_updated.isoformat()
             return data
         else:
             return None
@@ -206,6 +213,10 @@ def get_per_symbol_predictions():
     except Exception as e:
         st.warning(f"Could not load per-symbol predictions: {e}")
         return None
+
+def clear_cache():
+    """Clear Streamlit cache to force refresh"""
+    st.cache_data.clear()
 
 def get_latest_collected_data():
     """Get the latest collected historical data for predictions"""
@@ -251,6 +262,13 @@ def main():
     
     # Manual refresh button
     if st.sidebar.button("🔄 Refresh Data"):
+        clear_cache()
+        st.rerun()
+    
+    # Clear cache button
+    if st.sidebar.button("🗑️ Clear Cache"):
+        clear_cache()
+        st.success("Cache cleared! Refreshing...")
         st.rerun()
     
     # Theme toggle
@@ -370,6 +388,11 @@ def main():
                 if real_predictions and per_symbol_preds:
                     st.success("✅ **Using Real ML Model Predictions**")
                     
+                    # Show when predictions were last updated
+                    if 'last_updated' in real_predictions:
+                        last_updated = datetime.fromisoformat(real_predictions['last_updated'])
+                        st.info(f"📊 **Predictions last updated:** {last_updated.strftime('%Y-%m-%d %H:%M:%S')}")
+                    
                     # Show data source info
                     if collected_data:
                         latest_timestamp = max([data['timestamp'] for data in collected_data.values()])
@@ -447,7 +470,7 @@ def main():
                         else:
                             st.metric("Total Constituents", len(per_symbol_preds) if per_symbol_preds else 0)
                     with col2:
-                        st.metric("Weighted Sentiment Score", f"{wss:.3f}")
+                        st.metric("Weighted Sentiment Score", f"{wss:.6f}")
                     with col3:
                         if "BUY" in signal:
                             signal_display = "BULLISH"
@@ -459,6 +482,10 @@ def main():
                             signal_display = "NEUTRAL"
                             color = "neutral"
                         st.markdown(f'<p class="{color}"><strong>Signal: {signal_display}</strong></p>', unsafe_allow_html=True)
+                    
+                    # Debug info (expandable)
+                    with st.expander("🔍 Debug Info"):
+                        st.json(real_predictions)
                     
                     # Show WSS details
                     if 'detail' in real_predictions and 'table' in real_predictions['detail']:
@@ -533,8 +560,11 @@ def main():
         real_predictions = get_real_predictions()
         collected_data = get_latest_collected_data()
         
-        # Show data source for predictions
-        if collected_data:
+        # Show when predictions were last updated
+        if real_predictions and 'last_updated' in real_predictions:
+            last_updated = datetime.fromisoformat(real_predictions['last_updated'])
+            st.info(f"📊 **Signal based on predictions updated:** {last_updated.strftime('%Y-%m-%d %H:%M:%S')}")
+        elif collected_data:
             latest_timestamp = max([data['timestamp'] for data in collected_data.values()])
             st.info(f"📊 **Signal based on data collected as of:** {latest_timestamp.strftime('%Y-%m-%d %H:%M:%S')}")
         else:

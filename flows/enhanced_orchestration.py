@@ -11,7 +11,6 @@ import mlflow
 from mlflow.tracking import MlflowClient
 
 from prefect import flow, task
-from prefect.deployments import Deployment
 from prefect.server.schemas.schedules import CronSchedule
 from prefect.blocks.system import Secret
 from prefect import get_run_logger
@@ -227,35 +226,23 @@ def enhanced_index_flow(
     }
 
 
-def build_enhanced_deployments() -> None:
-    """Build multiple deployments for different schedules."""
+def create_deployments() -> None:
+    """Create deployments using the new Prefect 3.x API."""
+    print("Creating deployments using Prefect 3.x API...")
     
-    # Hourly prediction flow (light)
-    hourly_dep = Deployment.build_from_flow(
-        flow=enhanced_index_flow,
-        name="enhanced-index-signal-hourly",
-        schedules=[CronSchedule(cron="0 * * * *", timezone="UTC")],
-        parameters={"interval": "1h", "days": 7, "max_symbols": 5}
-    )
-    hourly_dep.apply()
+    # Note: In Prefect 3.x, deployments are created differently
+    # The old Deployment.build_from_flow() method is no longer available
+    # Instead, you can use flow.serve() or create deployments via the UI/CLI
     
-    # Daily full retraining flow
-    daily_dep = Deployment.build_from_flow(
-        flow=enhanced_index_flow,
-        name="enhanced-index-signal-daily",
-        schedules=[CronSchedule(cron="0 0 * * *", timezone="UTC")],
-        parameters={"interval": "1h", "days": 30, "max_symbols": 10}
-    )
-    daily_dep.apply()
+    print("To create deployments, use one of these methods:")
+    print("1. Use the Prefect UI: prefect server start, then create deployments via web interface")
+    print("2. Use flow.serve() for local development")
+    print("3. Use 'prefect deploy' CLI command")
     
-    # Weekly comprehensive flow
-    weekly_dep = Deployment.build_from_flow(
-        flow=enhanced_index_flow,
-        name="enhanced-index-signal-weekly",
-        schedules=[CronSchedule(cron="0 0 * * 0", timezone="UTC")],
-        parameters={"interval": "1h", "days": 60, "max_symbols": None}
-    )
-    weekly_dep.apply()
+    # Example of how to serve the flow locally
+    print("\nTo serve this flow locally, run:")
+    print("prefect deployment build flows/enhanced_orchestration.py:enhanced_index_flow -n 'enhanced-index-signal-hourly'")
+    print("prefect deployment apply enhanced_index_flow-deployment.yaml")
 
 
 if __name__ == "__main__":
@@ -302,5 +289,9 @@ if __name__ == "__main__":
     print("="*60)
     print("\nTo create scheduled deployments, use Prefect UI or CLI:")
     print("1. Start Prefect server: make prefect-start")
-    print("2. Open http://localhost:4200")
-    print("3. Create deployments from the UI")
+    print("2. Configure API URL: make prefect-setup")
+    print("3. Open http://127.0.0.1:4200")
+    print("4. Create deployments from the UI")
+    print("\nOr use the new deployment commands:")
+    print("prefect deployment build flows/enhanced_orchestration.py:enhanced_index_flow -n 'enhanced-index-signal-hourly'")
+    print("prefect deployment apply enhanced_index_flow-deployment.yaml")

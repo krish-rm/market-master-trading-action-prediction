@@ -72,18 +72,27 @@ smoke-test:
 
 # Advanced Orchestration (Prefect)
 prefect-start:
-	prefect server start --host 0.0.0.0 --port 4200
+	prefect server start --host 127.0.0.1 --port 4200
+
+prefect-setup:
+	prefect config set PREFECT_API_URL=http://127.0.0.1:4200/api
 
 prefect-worker:
 	prefect worker start -p process -q default
 
 prefect-flow:
-	python flows/enhanced_orchestration.py || exit 0
-
-prefect-deploy:
 	python flows/enhanced_orchestration.py
 
+prefect-deploy:
+	prefect deployment build flows/enhanced_orchestration.py:enhanced_index_flow -n "enhanced-index-signal-hourly"
 
+prefect-deploy-apply:
+	prefect deployment apply enhanced_index_flow-deployment.yaml
+
+prefect-deploy-all:
+	prefect deployment build flows/enhanced_orchestration.py:enhanced_index_flow -n "enhanced-index-signal-hourly" --cron "0 * * * *" --timezone "UTC" --params '{"interval": "1h", "days": 7, "max_symbols": 5}'
+	prefect deployment build flows/enhanced_orchestration.py:enhanced_index_flow -n "enhanced-index-signal-daily" --cron "0 0 * * *" --timezone "UTC" --params '{"interval": "1h", "days": 30, "max_symbols": 10}'
+	prefect deployment build flows/enhanced_orchestration.py:enhanced_index_flow -n "enhanced-index-signal-weekly" --cron "0 0 * * 0" --timezone "UTC" --params '{"interval": "1h", "days": 60, "max_symbols": null}'
 
 # Model Serving (MLflow)
 model-serving:
@@ -152,3 +161,12 @@ help:
 	@echo "  mlflow-ui      - Start MLflow UI"
 	@echo "  promote-staging - Promote model to staging"
 	@echo "  rollback-production - Rollback production model"
+	@echo ""
+	@echo "Prefect Orchestration:"
+	@echo "  prefect-start  - Start Prefect server"
+	@echo "  prefect-setup  - Configure Prefect API URL"
+	@echo "  prefect-worker - Start Prefect worker"
+	@echo "  prefect-flow   - Run Prefect flow directly"
+	@echo "  prefect-deploy - Build deployment"
+	@echo "  prefect-deploy-apply - Apply deployment"
+	@echo "  prefect-deploy-all - Create all scheduled deployments"
