@@ -1,33 +1,226 @@
+# Core ML and Data Science
 pandas==2.3.1
 numpy==1.26.4
 scikit-learn==1.4.2
-mlflow==2.13.0
-fastapi==0.110.0
-uvicorn[standard]>=0.35.0
-pydantic==2.11.7
-joblib==1.4.2
-yfinance==0.2.31
-pytz==2024.2
+scipy==1.15.3
 matplotlib==3.10.5
 seaborn==0.13.2
-scipy==1.15.3
-requests==2.32.4
-lxml==6.0.0
-pytest==8.2.1
-httpx==0.27.2
-prefect==2.15.0
-griffe==0.20.0
+joblib==1.4.2
 
-# Development dependencies
+# MLflow and Model Management
+mlflow==2.13.0
+protobuf==4.25.8
+pyarrow==15.0.2
+
+# FastAPI and Web Framework
+fastapi==0.110.0
+uvicorn==0.35.0
+starlette==0.36.3
+pydantic==2.11.7
+pydantic_core==2.33.2
+python-multipart==0.0.20
+
+# HTTP and Networking
+requests==2.32.4
+httpx==0.27.2
+httpcore==1.0.9
+httptools==0.6.4
+websocket-client==1.8.0
+websockets==15.0.1
+
+# Data Fetching and Processing
+yfinance==0.2.65
+lxml==6.0.0
+beautifulsoup4==4.13.4
+dateparser==1.2.2
+python-dateutil==2.9.0.post0
+
+# Prefect Workflow Orchestration
+prefect==2.16.0
+pendulum==2.1.2
+croniter==2.0.7
+
+# Database and Storage
+SQLAlchemy==2.0.43
+aiosqlite==0.21.0
+asyncpg==0.30.0
+peewee==3.18.2
+alembic==1.16.4
+
+# Authentication and Security
+google-auth==2.40.3
+cryptography==45.0.6
+rsa==4.9.1
+oauthlib==3.3.1
+requests-oauthlib==2.0.0
+
+# Docker and Containerization
+docker==6.1.3
+kubernetes==29.0.0
+
+# Streamlit Dashboard
+streamlit==1.46.1
+plotly==6.0.1
+
+# Development and Testing
+pytest==8.2.1
+pytest-cov==5.0.0
 black==25.1.0
 flake8==7.3.0
 isort==6.0.1
 mypy==1.17.1
 pre-commit==4.3.0
-pytest-cov==5.0.0
+coverage==7.10.3
 
-# Additional dependencies for enhanced functionality
-python-multipart==0.0.20
-streamlit==1.32.0
-plotly==5.19.0
+# Code Quality and Formatting
+pycodestyle==2.14.0
+pyflakes==3.4.0
+Pygments==2.19.2
 
+# Utilities and Helpers
+click==8.1.8
+typer==0.12.5
+rich==13.9.4
+colorama==0.4.6
+humanize==4.12.3
+jinja2-humanize-extension==0.4.0
+
+# File and System Operations
+filelock==3.19.1
+watchfiles==1.1.0
+watchdog==6.0.0
+pathspec==0.12.1
+platformdirs==4.3.8
+
+# JSON and Data Serialization
+orjson==3.11.2
+ujson==5.10.0
+PyYAML==6.0.2
+toml==0.10.2
+tomli==2.2.1
+
+# Async and Concurrency
+anyio==3.7.1
+async-timeout==5.0.1
+asgi-lifespan==2.1.0
+
+# GraphQL and API
+graphene==3.4.3
+graphql-core==3.2.6
+graphql-relay==3.2.0
+graphviz==0.21
+
+# Monitoring and Logging
+apprise==1.9.4
+structlog==25.4.0
+
+# Configuration and Environment
+python-dotenv==1.1.1
+pydantic-settings==2.10.1
+
+# Time and Date Handling
+pytz==2024.2
+pytzdata==2020.1
+tzdata==2025.2
+tzlocal==5.3.1
+
+# Text Processing
+regex==2025.7.34
+text-unidecode==1.3
+python-slugify==8.0.4
+
+# Validation and Schema
+jsonschema==4.25.0
+jsonschema-specifications==2025.4.1
+jsonpatch==1.33
+jsonpointer==3.0.0
+referencing==0.36.2
+rfc3339-validator==0.1.4
+
+# Type Checking and Annotations
+typing_extensions==4.14.1
+typing-inspection==0.4.1
+annotated-types==0.7.0
+mypy_extensions==1.1.0
+
+# Git and Version Control
+GitPython==3.1.45
+gitdb==4.0.12
+smmap==5.0.2
+
+# Virtual Environment Management
+virtualenv==20.34.0
+nodeenv==1.9.1
+
+# Documentation and Code Analysis
+griffe==0.20.0
+markdown-it-py==4.0.0
+Markdown==3.8.2
+
+# Windows-specific
+pywin32==311
+
+# Additional Dependencies
+attrs==25.3.0
+blinker==1.9.0
+cachetools==5.5.2
+certifi==2025.8.3
+cffi==1.17.1
+cfgv==3.4.0
+charset-normalizer==3.4.3
+cloudpickle==3.1.1
+contourpy==1.3.2
+coolname==2.2.0
+curl_cffi==0.13.0
+cycler==0.12.1
+distlib==0.4.0
+dnspython==2.7.0
+email_validator==2.2.0
+entrypoints==0.4
+exceptiongroup==1.3.0
+Flask==3.1.3
+fonttools==4.59.0
+frozendict==2.4.6
+fsspec==2025.7.0
+greenlet==3.2.4
+h11==0.16.0
+h2==4.2.0
+hpack==4.1.0
+humanize==4.12.3
+hyperframe==6.1.0
+identify==2.6.13
+idna==3.10
+importlib_metadata==7.2.1
+importlib_resources==6.4.5
+iniconfig==2.1.0
+itsdangerous==2.2.0
+Jinja2==3.1.6
+kiwisolver==1.4.9
+Mako==1.3.10
+MarkupSafe==3.0.2
+mccabe==0.7.0
+mdurl==0.1.2
+multitasking==0.0.12
+opentelemetry-api==1.36.0
+opentelemetry-sdk==1.36.0
+opentelemetry-semantic-conventions==0.57b0
+packaging==24.2
+pillow==11.3.0
+pluggy==1.6.0
+pycparser==2.22
+pyparsing==3.2.3
+querystring-parser==1.2.4
+readchar==4.2.1
+rpds-py==0.27.0
+ruamel.yaml==0.18.14
+ruamel.yaml.clib==0.2.12
+shellingham==1.5.4
+six==1.17.0
+sniffio==1.3.1
+soupsieve==2.7
+sqlparse==0.5.3
+threadpoolctl==3.6.0
+urllib3==2.5.0
+waitress==3.0.2
+Werkzeug==3.1.3
+zipp==3.23.0
