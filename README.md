@@ -180,7 +180,6 @@ cd market-master-trading-action-prediction
    - **API Documentation**: http://localhost:8000/docs (Swagger UI)
    - **MLflow UI**: http://localhost:5000 
    - **Streamlit Dashboard**: http://localhost:8501 
-   - **Prefect Dashboard**: http://localhost:4200 
 
 5) **Test the Setup**
 ```bash
@@ -196,8 +195,8 @@ cd market-master-trading-action-prediction
 **⚠️ Note**: The pipeline requires internet connectivity to fetch stock data from Yahoo Finance. If you encounter data fetching issues, the system will use fallback data for demonstration purposes.
 
 **🎯 What's Included in Option B:**
-- **PostgreSQL Database**: Production-grade database for MLflow backend
-- **Complete Service Stack**: API, MLflow, Dashboard, and Prefect orchestration
+- **SQLite Database**: Lightweight database for MLflow backend
+- **Complete Service Stack**: API, MLflow, and Dashboard
 - **Persistent Storage**: All data and artifacts preserved across restarts
 - **Health Monitoring**: Automatic health checks for all services
 - **Network Isolation**: Dedicated Docker network for security
@@ -221,7 +220,7 @@ make docker-clean
 make docker-health-check
 ```
 
-**📚 For detailed Docker setup instructions, see [docs/docker_setup.md](docs/docker_setup.md)**
+**📚 For detailed Docker setup instructions, see the Makefile commands below**
 
 **💡 Tip**: See the [Available Commands](#️-available-commands) section below for all available options.
 
@@ -232,7 +231,7 @@ For reference, here are screenshots of the system in action:
 - **[MLflow Experiments Dashboard](docs/mlflow_experiments.png)** - Experiment tracking and model comparison
 - **[MLflow Model Registry](docs/mlflow_models.png)** - Model versioning and promotion workflow
 - **[Model Serving API](docs/model-serving-api.png)** - REST API for predictions
-- **[Prefect Dashboard](docs/prefect_dashboard.png)** - Workflow orchestration and monitoring
+
 
 
 
@@ -241,8 +240,18 @@ For reference, here are screenshots of the system in action:
 
 | Command | Purpose | When to Use |
 |---------|---------|-------------|
-| `make prefect-flow` | Run complete orchestrated pipeline | **Main command** - Start here |
-| `make smoke-test` | Quick pipeline + API test | Testing the system |
+| `make docker-setup` | Complete Docker setup (Option B) | **Main command** - Start here |
+| `make docker-pipeline` | Run ML pipeline in Docker | Train and register models |
+| `make docker-smoke-test` | Test Docker services | Validate deployment |
+| `make docker-health-check` | Check service health | Monitor deployment |
+| `make docker-logs` | View service logs | Debug deployment |
+| `make docker-restart` | Restart services | Service management |
+| `make docker-clean` | Clean up Docker resources | Maintenance |
+| `make docker-build` | Build Docker images | Containerization |
+| `make docker-run` | Start Docker services | Container deployment |
+| `make docker-build-fast` | Build with BuildKit (faster) | Optimized builds |
+| `make docker-build-api` | Build API image only | Partial rebuilds |
+| `make docker-build-dashboard` | Build Dashboard image only | Partial rebuilds |
 | `make clean` | Remove all artifacts and data | Fresh start |
 | `make install` | Install dependencies | First time setup |
 | `make install-dev` | Install + pre-commit hooks | Development setup |
@@ -250,25 +259,12 @@ For reference, here are screenshots of the system in action:
 | `make model-serving` | Start model serving API | Serve predictions |
 | `make model-serving-test` | Test model serving endpoints | Validate API |
 | `make streamlit-dashboard` | Start interactive dashboard | Real-time monitoring |
-| `make prefect-start` | Start Prefect server | Advanced orchestration |
-| `make prefect-worker` | Start Prefect worker | Advanced orchestration |
-| `make prefect-deploy` | Deploy scheduled flows | Advanced orchestration |
 | `make test` | Run all tests | Quality assurance |
 | `make test-unit` | Run unit tests only | Component testing |
 | `make test-integration` | Run integration tests only | System testing |
 | `make lint` | Run code linting | Code quality |
 | `make format` | Format code with black | Code formatting |
 | `make type-check` | Run type checking | Code quality |
-| `make docker-build` | Build Docker images | Containerization |
-| `make docker-run` | Start Docker services | Container deployment |
-| `make docker-setup` | Complete Docker setup (Option B) | Full reproducible deployment |
-| `make docker-smoke-test` | Test Docker services | Validate deployment |
-| `make docker-health-check` | Check service health | Monitor deployment |
-| `make docker-logs` | View service logs | Debug deployment |
-| `make docker-restart` | Restart services | Service management |
-| `make docker-clean` | Clean up Docker resources | Maintenance |
-| `make promote-staging` | Promote model to staging | Model management |
-| `make rollback-production` | Rollback production model | Model management |
 
 
 ### **Model Serving API Endpoints**
@@ -388,19 +384,18 @@ pytest tests/integration/ -q
 ```bash
 .
 ├── README.md                        # Main project documentation
-├── requirements.txt                 # Python dependencies
-├── Makefile                         # Convenience commands for development
-├── Dockerfile                       # Containerized API service
-├── Dockerfile.dashboard             # Containerized dashboard service
-├── docker-compose.yml               # Multi-service orchestration
+├── requirements.txt                 # Python dependencies (Option A)
+├── requirements.prod.txt            # Production dependencies (Option B - API)
+├── requirements.dev.txt             # Development dependencies (Option A)
+├── dashboard/requirements.prod.txt  # Dashboard dependencies (Option B)
+├── Makefile                         # Convenience commands for both options
+├── .dockerignore                    # Docker build exclusions
 ├── .github/workflows/ci.yml         # GitHub Actions CI/CD
 ├── docs/                            # Documentation
 │   ├── concept_diagram.png          # System architecture diagram
 │   ├── mlflow_experiments.png       # MLflow experiments screenshot
 │   ├── mlflow_models.png            # Model registry screenshot
-│   ├── model-serving-api.png        # API documentation screenshot
-│   ├── prefect_dashboard.png        # Prefect dashboard screenshot
-│   └── DOCKER_SETUP.md              # Detailed Docker setup guide
+│   └── model-serving-api.png        # API documentation screenshot
 ├── data/                            # Data storage
 │   ├── components/                  # per‑symbol 1h OHLCV CSVs
 │   ├── weights/qqq_weights.csv      # normalized QQQ weights (top‑10 in MVP)
@@ -423,22 +418,26 @@ pytest tests/integration/ -q
 │   ├── monitor_drift.py             # Evidently drift + classification quality reports
 │   ├── gate_and_report.py           # promotion gating and summary
 │   ├── registry.py                  # promote/rollback aliases (Staging/Production)
-│   ├── run_pipeline.py              # end‑to‑end runner (local orchestration)
+│   ├── run_pipeline.py              # end‑to‑end runner (Option A & B)
 │   ├── hourly_predict.py            # hourly scheduler entrypoint (Windows Task Scheduler)
 │   └── api.py                       # FastAPI serving (registry‑first model load)
-├── flows/                           # Workflow orchestration
-│   └── enhanced_orchestration.py    # Prefect flow definition
+├── flows/                           # Workflow orchestration (Option A)
+│   └── enhanced_orchestration.py    # Prefect flow definition (not used in Option B)
 ├── dashboard/                       # Interactive dashboard
 │   ├── streamlit_app.py             # Streamlit trading dashboard
 │   └── README.md                    # Dashboard documentation
-└── tests/                           # Test suite
-    ├── unit/                        # Unit tests
-    │   ├── test_features.py         # Feature engineering tests
-    │   ├── test_pipeline.py         # Pipeline component tests
-    │   └── test_mlops.py            # MLOps functionality tests
-    ├── integration/                 # Integration tests
-    │   └── test_api.py              # API endpoint tests
-    └── conftest.py                  # Shared test fixtures
+├── tests/                           # Test suite
+│   ├── unit/                        # Unit tests
+│   │   ├── test_features.py         # Feature engineering tests
+│   │   ├── test_pipeline.py         # Pipeline component tests
+│   │   └── test_mlops.py            # MLOps functionality tests
+│   ├── integration/                 # Integration tests
+│   │   └── test_api.py              # API endpoint tests
+│   └── conftest.py                  # Shared test fixtures
+├── Dockerfile                       # API service container (Option B)
+├── Dockerfile.dashboard             # Dashboard service container (Option B)
+├── Dockerfile.mlflow                # MLflow service container (Option B)
+└── docker-compose.yml               # Multi-service orchestration (Option B)
 ```
 
 
@@ -451,17 +450,22 @@ pytest tests/integration/ -q
 - **Problem description**: Clearly defined 1‑hour constituent signals aggregated to an index decision.
 - **Cloud**: Local‑only with Docker containerization for reproducibility.
 - **Experiment tracking & registry**: MLflow tracking implemented; Model Registry with aliases implemented.
-- **Workflow orchestration**: Prefect 2 task-based orchestration with proper logging, error handling, and conditional deployment.
+- **Workflow orchestration**: 
+  - **Option A (Local)**: Prefect flows (`flows/enhanced_orchestration.py`) for advanced orchestration
+  - **Option B (Docker)**: Simple pipeline orchestration via `src.run_pipeline.py`
 - **Model deployment**: FastAPI with `/health`, `/predict/component`, `/signal/index`, and `/predict`; loads registry `@Production` model with artifact fallback.
 - **Monitoring**: Evidently drift and classification quality reports saved to `data/monitoring/` and logged to MLflow.
-- **Reproducibility**: Pinned requirements, deterministic seeds, tests, and Docker containerization.
+- **Reproducibility**: 
+  - **Option A**: Pinned requirements, deterministic seeds, tests
+  - **Option B**: Fully containerized with Docker for complete reproducibility
 - **Best practices**: 
   - ✅ **Unit tests**: Comprehensive test suite covering features, pipeline, and MLOps components
   - ✅ **Integration tests**: API endpoint testing with FastAPI TestClient
   - ✅ **Linter and formatter**: Black (code formatting), isort (import sorting), flake8 (linting), mypy (type checking)
-  - ✅ **Makefile**: Comprehensive development and deployment commands
+  - ✅ **Makefile**: Comprehensive development and deployment commands for both options
   - ✅ **Pre-commit hooks**: Automated code quality checks before commits
   - ✅ **CI/CD pipeline**: GitHub Actions with automated testing, linting, and pipeline smoke tests
+  - ✅ **Docker optimization**: Multi-stage builds, optimized dependencies, and health checks
 
 ---
 
@@ -501,28 +505,5 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 - The financial community for domain expertise
 
 ---
-
-## 📋 Project Status Summary
-
-✅ **Option B Docker Setup Complete**
-- **PostgreSQL Database**: Production-grade backend for MLflow
-- **Complete Service Stack**: API, MLflow, Dashboard, Prefect
-- **Persistent Storage**: Data survives container restarts
-- **Health Monitoring**: Automatic health checks
-- **Network Isolation**: Secure Docker network
-- **Full Reproducibility**: Works identically on any machine
-
-✅ **All Access Points Available**
-- **API**: http://localhost:8000/docs
-- **MLflow UI**: http://localhost:5000
-- **Dashboard**: http://localhost:8501
-- **Prefect**: http://localhost:4200
-
-✅ **Production-Ready Features**
-- Model registry with staging/production promotion
-- Automated pipeline orchestration
-- Real-time monitoring and health checks
-- Comprehensive logging and error handling
-
 **Ready to experience the power of Market Master in financial prediction? Deploy and monitor your models with confidence!**
 

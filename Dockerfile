@@ -1,31 +1,30 @@
-FROM python:3.10-slim
-
+# ---- Builder ----
+FROM python:3.10-slim AS builder
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PIP_NO_CACHE_DIR=1
 WORKDIR /app
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    curl \
-    gcc \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
+# Install build dependencies only
+RUN apt-get update && apt-get install -y --no-install-recommends gcc g++ \
+ && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements and install Python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt psycopg2-binary
+# Copy and install requirements first (better caching)
+COPY requirements.prod.txt .
+RUN python -m pip install -U pip setuptools wheel \
+ && pip install --no-cache-dir -r requirements.prod.txt
 
-# Copy source code
+# ---- Runtime ----
+FROM python:3.10-slim
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+WORKDIR /app
+
+# Copy only Python packages from builder (no build tools)
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
+
+# Copy source code last (changes most frequently)
 COPY src/ ./src/
-COPY tests/ ./tests/
+COPY flows/ ./flows/
 
-# Create necessary directories
-RUN mkdir -p data/components data/weights data/monitoring artifacts mlruns
-
-# Expose port
+# FastAPI (Uvicorn)
 EXPOSE 8000
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Run the API
 CMD ["uvicorn", "src.api:app", "--host", "0.0.0.0", "--port", "8000"]

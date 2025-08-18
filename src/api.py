@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -38,7 +39,9 @@ def _load_model_and_meta():
     
     # Try to load from MLflow Model Registry alias first, fallback to local artifacts
     try:
-        mlflow.set_tracking_uri("sqlite:///mlflow.db")
+        # Use environment variable or default to local SQLite for Option A
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+        mlflow.set_tracking_uri(tracking_uri)
         uri = f"models:/{REGISTRY_MODEL_NAME}@{REGISTRY_ALIAS}"
         model = mlflow.sklearn.load_model(uri)
         meta = json.loads(META_PATH.read_text(encoding="utf-8"))

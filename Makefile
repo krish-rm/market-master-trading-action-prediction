@@ -1,5 +1,12 @@
 .PHONY: install test lint format clean pipeline smoke-test docker-build docker-run
 
+# Quick Reference:
+# Option A (Local): 
+#   - Simple: make pipeline (uses src.run_pipeline.py)
+#   - Enhanced: make prefect-flow (uses flows/enhanced_orchestration.py)
+# Option B (Docker): 
+#   - Complete: make docker-setup (uses src.run_pipeline.py in containers)
+
 # Development
 install:
 	pip install -r requirements.txt
@@ -58,7 +65,7 @@ clean:
 	powershell -Command "Get-ChildItem -Recurse -Directory -Filter '__pycache__' | Remove-Item -Recurse -Force"
 	echo "Cleanup completed"
 
-# Pipeline
+# Option A: Local Pipeline (Simple)
 pipeline:
 	python -m src.run_pipeline --interval 1h --days 30 --max-symbols 10
 
@@ -70,7 +77,7 @@ smoke-test:
 	curl -f "http://localhost:8000/predict/component?symbol=AAPL"
 	echo "Smoke test completed successfully. API server is still running on http://localhost:8000"
 
-# Advanced Orchestration (Prefect)
+# Option A: Local Pipeline (Enhanced Prefect Orchestration)
 prefect-start:
 	prefect server start --host 127.0.0.1 --port 4200
 
@@ -112,29 +119,28 @@ model-serving-simple:
 streamlit-dashboard:
 	streamlit run dashboard/streamlit_app.py --server.port 8501 --server.address localhost
 
-# Docker (Option B - Full Reproducible Setup)
+# Option B: Docker Pipeline (Optimized Reproducible Setup)
 docker-build:
-	docker build -t market-master-api .
-	docker build -f Dockerfile.dashboard -t market-master-dashboard .
+	docker compose build
 
 docker-run:
-	docker-compose up -d
+	docker compose up -d
 
 docker-stop:
-	docker-compose down
+	docker compose down
 
 docker-logs:
-	docker-compose logs -f
+	docker compose logs -f
 
 docker-restart:
-	docker-compose restart
+	docker compose restart
 
 docker-clean:
-	docker-compose down -v
-	docker system prune -f
+	docker compose down -v
+	docker system prune -a --volumes -f
 
 docker-setup:
-	@echo "Setting up Docker environment..."
+	@echo "Setting up optimized Docker environment..."
 	@echo "1. Building Docker images..."
 	make docker-build
 	@echo "2. Starting services..."
@@ -145,16 +151,14 @@ docker-setup:
 	@echo "- API: http://localhost:8000/docs"
 	@echo "- MLflow UI: http://localhost:5000"
 	@echo "- Dashboard: http://localhost:8501"
-	@echo "- Prefect: http://localhost:4200"
 
 docker-pipeline:
-	@echo "Running Prefect-orchestrated ML pipeline in Docker..."
+	@echo "Running ML pipeline in Docker..."
 	@echo "This will train the model and register it in MLflow..."
-	docker-compose exec -T api python flows/enhanced_orchestration.py
+	docker compose exec -T api python -m src.run_pipeline
 	@echo "Pipeline completed. Model should now be available in MLflow registry."
 
 docker-smoke-test:
-	docker-compose exec -T api python flows/enhanced_orchestration.py
 	@echo "Testing API endpoints..."
 	curl -f http://localhost:8000/health
 	curl -f "http://localhost:8000/predict/component?symbol=AAPL"
@@ -168,8 +172,19 @@ docker-health-check:
 	curl -f http://localhost:5000 || echo "MLflow not ready"
 	@echo "Dashboard Health:"
 	curl -f http://localhost:8501/_stcore/health || echo "Dashboard not ready"
-	@echo "Prefect Health:"
-	curl -f http://localhost:4200/api/health || echo "Prefect not ready"
+
+# Optimized build commands
+docker-build-fast:
+	docker compose build
+
+docker-build-api:
+	docker compose build api
+
+docker-build-dashboard:
+	docker compose build dashboard
+
+docker-build-mlflow:
+	docker compose build mlflow
 
 # MLflow UI
 mlflow-ui:
@@ -204,18 +219,30 @@ help:
 	@echo "  pre-commit-all - Run all pre-commit hooks"
 	@echo "  clean          - Clean artifacts and cache"
 	@echo ""
-	@echo "Pipeline:"
-	@echo "  pipeline       - Run full pipeline"
+	@echo "Option A: Local Pipeline (Simple)"
+	@echo "  pipeline       - Run simple pipeline (src.run_pipeline.py)"
 	@echo "  smoke-test     - Run smoke test"
 	@echo "  mlflow-ui      - Start MLflow UI"
 	@echo "  promote-staging - Promote model to staging"
 	@echo "  rollback-production - Rollback production model"
 	@echo ""
-	@echo "Prefect Orchestration:"
+	@echo "Option A: Local Pipeline (Enhanced Prefect Orchestration)"
 	@echo "  prefect-start  - Start Prefect server"
 	@echo "  prefect-setup  - Configure Prefect API URL"
 	@echo "  prefect-worker - Start Prefect worker"
-	@echo "  prefect-flow   - Run Prefect flow directly"
+	@echo "  prefect-flow   - Run Prefect flow (flows/enhanced_orchestration.py)"
 	@echo "  prefect-deploy - Build deployment"
 	@echo "  prefect-deploy-apply - Apply deployment"
 	@echo "  prefect-deploy-all - Create all scheduled deployments"
+	@echo ""
+	@echo "Option B: Docker Pipeline (Optimized Reproducible Setup)"
+	@echo "  docker-setup   - Complete Docker setup (build + run + pipeline)"
+	@echo "  docker-build   - Build Docker images"
+	@echo "  docker-run     - Start Docker services"
+	@echo "  docker-pipeline - Run pipeline in Docker (src.run_pipeline.py)"
+	@echo "  docker-smoke-test - Test Docker services"
+	@echo "  docker-health-check - Check service health"
+	@echo "  docker-logs    - View service logs"
+	@echo "  docker-restart - Restart services"
+	@echo "  docker-stop    - Stop services"
+	@echo "  docker-clean   - Clean up Docker resources"

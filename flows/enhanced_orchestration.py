@@ -246,8 +246,14 @@ def create_deployments() -> None:
 
 
 if __name__ == "__main__":
-    # Run the flow directly (deployments can be created separately via Prefect UI)
+    # Run the flow directly without server connection
     print("Running enhanced market master flow...")
+    
+    # Set environment to run without server
+    import os
+    os.environ["PREFECT_API_URL"] = ""
+    
+    # Run the flow with local execution
     result = enhanced_index_flow()
     
     # Print detailed results including model version

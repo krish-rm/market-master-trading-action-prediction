@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import subprocess
 from pathlib import Path
 
@@ -93,7 +94,9 @@ def main() -> None:
         import mlflow
         from mlflow.tracking import MlflowClient
 
-        mlflow.set_tracking_uri("sqlite:///mlflow.db")
+        # Use environment variable or default to local SQLite for Option A
+        tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+        mlflow.set_tracking_uri(tracking_uri)
         client = MlflowClient()
         name = "market-master-component-classifier"
         # Get version currently tagged Staging

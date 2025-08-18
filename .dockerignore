@@ -1,0 +1,84 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+bin/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# Logs and databases
+*.log
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment
+.env
+.venv/
+venv/
+env/
+ENV/
+
+# Version control
+.git/
+.gitignore
+.gitattributes
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+LICENSE
+README*
+CHANGELOG*
+docs/
+
+# Development
+.pre-commit-config.yaml
+pyproject.toml
+requirements.dev.txt
+setup.py
+setup.cfg
+tox.ini
+pytest.ini
+.coverage
+htmlcov/
+.pytest_cache/
+
+# Project specific
+tests/
+test_*
+*_test.py
+mlruns/
+artifacts/**/__pycache__/
+data/**/*.tmp
+data/**/*.csv.bak
+*.tmp
+*.bak
+
+# Docker
+Dockerfile*
+docker-compose*
+.dockerignore

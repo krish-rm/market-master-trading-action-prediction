@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -77,7 +78,9 @@ def time_split(ds: pd.DataFrame, feature_columns: List[str], test_ratio: float =
 
 
 def main() -> None:
-    mlflow.set_tracking_uri("sqlite:///mlflow.db")
+    # Use environment variable or default to local SQLite for Option A
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+    mlflow.set_tracking_uri(tracking_uri)
     mlflow.set_experiment("market-master-actions")
 
     components_dir = Path("data/components")
