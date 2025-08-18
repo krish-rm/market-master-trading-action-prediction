@@ -70,6 +70,39 @@ This approach ensures consistent, data-driven decisions, removes human guesswork
 
 ---
 
+## 📊 Data Source & Real-Time Processing
+
+Our system uses **real market data** from Yahoo Finance (yfinance) to provide live predictions. Here's how the data pipeline works:
+
+### **Data Collection**
+- **Source**: Yahoo Finance API via `yfinance` library
+- **Frequency**: 1-hour OHLCV (Open, High, Low, Close, Volume) data
+- **Timeframe**: Last 10 days of historical data for each constituent
+- **Constituents**: Top-weighted NASDAQ-100 stocks including:
+  - **Technology**: Apple (AAPL), Microsoft (MSFT), NVIDIA (NVDA), Google (GOOGL), Meta (META)
+  - **E-commerce**: Amazon (AMZN)
+  - **Semiconductors**: Broadcom (AVGO)
+  - **Automotive**: Tesla (TSLA)
+  - **Retail**: Costco (COST)
+  - **Consumer**: PepsiCo (PEP)
+
+### **Real-Time Processing**
+- **Live Fetching**: Each pipeline run fetches fresh data from Yahoo Finance
+- **Market Hours**: Data is filtered to include only market hours (9:30 AM - 4:00 PM ET)
+- **Fallback System**: If external API is unavailable, system uses built-in historical data
+- **Batch Processing**: Real batch data processing with technical indicators and feature engineering
+- **Model Serving**: Trained models serve predictions on live market data
+
+### **Data Quality**
+- **Validation**: Sanity checks ensure data quality and completeness
+- **Persistence**: Processed data saved to `data/components/` for analysis
+- **Monitoring**: Data drift detection ensures model performance on new market conditions
+
+This approach ensures our predictions are based on real, current market data rather than static datasets, making the system suitable for actual trading applications.
+
+
+---
+
 ## 🚆 Execution Flow (Local)
 1) **Fetch**: QQQ index weights → fetch 1‑hour OHLCV data for top QQQ constituents (AAPL, MSFT, NVDA, AMZN, GOOGL, META, etc.) to `data/components/`.
 2) **Features/labels**: rolling indicators and dynamic thresholds; persist metadata.
